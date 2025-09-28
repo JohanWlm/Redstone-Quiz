@@ -1,504 +1,154 @@
-
-
 [
-  {
-    "text": "What is Redstone DeFi?",
-    "options": [
-      "DeFi",
-      "EXMP",
-      "Example C",
-      "Example D"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "What does DeFi stand for?",
-    "options": [
-      "Decentralized Finance",
-      "Defined Finance",
-      "Default Finance",
-      "Deferred Finance"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "What is Bitcoin's ticker?",
-    "options": [
-      "BTC",
-      "BTX",
-      "XBC",
-      "BCN"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Ethereum's native coin is?",
-    "options": [
-      "ETH",
-      "ETC",
-      "ETF",
-      "ETN"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "DEX stands for?",
-    "options": [
-      "Decentralized Exchange",
-      "Digital Email eXchange",
-      "Data EXtractor",
-      "Direct EXecution"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Smart contracts run on?",
-    "options": [
-      "Blockchain",
-      "Email",
-      "Spreadsheet",
-      "CDN"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Which is a stablecoin?",
-    "options": [
-      "USDC",
-      "ETH",
-      "BTC",
-      "MATIC"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "'Gas fee' refers to?",
-    "options": [
-      "Transaction fee",
-      "Car fuel cost",
-      "App install size",
-      "Internet bill"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A wallet kept offline is called a?",
-    "options": [
-      "Cold wallet",
-      "Hot wallet",
-      "Custodial wallet",
-      "Browser wallet"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Which is EVM-compatible?",
-    "options": [
-      "Polygon",
-      "Solana",
-      "Bitcoin",
-      "Ripple"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A liquidity pool commonly holds?",
-    "options": [
-      "Two tokens",
-      "Four tokens",
-      "Only NFTs",
-      "Only one token"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "AMM stands for?",
-    "options": [
-      "Automated Market Maker",
-      "Automatic Money Manager",
-      "Asset Match Mechanism",
-      "Average Market Metric"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Slippage is?",
-    "options": [
-      "Price difference vs expected",
-      "Seed phrase",
-      "Block time",
-      "Hash rate"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Typical seed phrase length?",
-    "options": [
-      "12 or 24 words",
-      "4 words",
-      "64 digits",
-      "1 word"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "NFT stands for?",
-    "options": [
-      "Non-Fungible Token",
-      "New Finance Token",
-      "Network Fee Token",
-      "Non-Financial Transfer"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Which is a Layer 2?",
-    "options": [
-      "Arbitrum",
-      "Bitcoin",
-      "Monero",
-      "Litecoin"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Oracles provide?",
-    "options": [
-      "Off-chain data to contracts",
-      "Custody service",
-      "Wallet UI",
-      "Password resets"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Governance tokens are for?",
-    "options": [
-      "Voting in protocols",
-      "Paying Bitcoin gas",
-      "GPU mining",
-      "Replacing seed phrases"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Impermanent loss happens when?",
-    "options": [
-      "Providing liquidity",
-      "Only staking",
-      "Sending tokens",
-      "Buying NFTs"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A bridge lets you?",
-    "options": [
-      "Move assets across chains",
-      "Mine blocks",
-      "Verify social media",
-      "Compress images"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Your private key should be?",
-    "options": [
-      "Kept secret",
-      "Shared with friends",
-      "Emailed to support",
-      "Posted online"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A transaction is confirmed when?",
-    "options": [
-      "It's in a block",
-      "Wallet hits 0",
-      "Website loads",
-      "Gas is cheap"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Etherscan is a(n)?",
-    "options": [
-      "Block explorer",
-      "Wallet app",
-      "Exchange",
-      "Game"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "DeFi lending example?",
-    "options": [
-      "Aave",
-      "Photoshop",
-      "Outlook",
-      "macOS"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "dApp means?",
-    "options": [
-      "Decentralized Application",
-      "Direct App",
-      "Distributed Approval",
-      "Digital Application"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Staking generally means?",
-    "options": [
-      "Lock tokens for rewards",
-      "Spend tokens",
-      "Burn tokens",
-      "Print tokens"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Multi-sig wallets require?",
-    "options": [
-      "Multiple approvals",
-      "High gas",
-      "NFTs",
-      "Credit cards"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "DAO stands for?",
-    "options": [
-      "Decentralized Autonomous Organization",
-      "Data Asset Owner",
-      "Digital Account Org",
-      "Dynamic Access Office"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Rug pull means?",
-    "options": [
-      "Dev drains liquidity",
-      "Successful audit",
-      "Price stabilization",
-      "New roadmap"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "KYC stands for?",
-    "options": [
-      "Know Your Customer",
-      "Key Your Crypto",
-      "Keep Your Coins",
-      "Know Your Contract"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Gas on Ethereum is paid in?",
-    "options": [
-      "ETH",
-      "USDC",
-      "BTC",
-      "DAI"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Flash loan is?",
-    "options": [
-      "Uncollateralized loan in 1 tx",
-      "Loan for real estate",
-      "Long-term bond",
-      "Insurance policy"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Yield farming involves?",
-    "options": [
-      "Earning by providing liquidity",
-      "Mining GPUs",
-      "Buying hardware",
-      "Playing games"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Token burn means?",
-    "options": [
-      "Permanently removing tokens",
-      "Heating a wallet",
-      "Sending to a friend",
-      "Listing on CEX"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A fork is?",
-    "options": [
-      "Network splits into versions",
-      "Wallet disconnect",
-      "UI redesign",
-      "Gas refund"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "TVL stands for?",
-    "options": [
-      "Total Value Locked",
-      "Token Volume Liquidity",
-      "Total Volume Leverage",
-      "Traded Value Level"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "MEV means?",
-    "options": [
-      "Maximal Extractable Value",
-      "Minimum Exchange Volume",
-      "Mean Ethereum Value",
-      "Market Equity Value"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "An airdrop is?",
-    "options": [
-      "Token distribution to users",
-      "Apple file transfer only",
-      "NFT burning",
-      "Fiat loan"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "A faucet provides?",
-    "options": [
-      "Small test tokens",
-      "Custody",
-      "KYC",
-      "Hardware"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Hash function property?",
-    "options": [
-      "One-way",
-      "Two-way",
-      "Needs password",
-      "Human-readable"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "PoS stands for?",
-    "options": [
-      "Proof of Stake",
-      "Point of Sale",
-      "Proof of Seed",
-      "Price of Stock"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Block time is?",
-    "options": [
-      "Avg time to make a block",
-      "Tx fee",
-      "DST",
-      "Key rotation"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "ENS is?",
-    "options": [
-      "Ethereum Name Service",
-      "Enterprise Node System",
-      "Exchange Network Service",
-      "Ethereum Node Scheduler"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Reduce contract bugs via?",
-    "options": [
-      "Audits & testing",
-      "Rug pulls",
-      "Low TVL",
-      "High gas fees"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Decentralization improves?",
-    "options": [
-      "Censorship resistance",
-      "Central control",
-      "Single failure point",
-      "Password resets"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Stablecoins aim to?",
-    "options": [
-      "Maintain price stability",
-      "Double daily",
-      "Be NFTs",
-      "Mine blocks"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Bridge risk includes?",
-    "options": [
-      "Smart contract exploits",
-      "Better UX",
-      "Lower latency",
-      "Free gas"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Slippage tolerance is?",
-    "options": [
-      "Max allowed price deviation",
-      "Wallet USD value",
-      "Gas cap",
-      "Block number"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "DCA stands for?",
-    "options": [
-      "Dollar-Cost Averaging",
-      "Decentralized Chain Access",
-      "Direct Contract Audit",
-      "Dynamic Crypto Allocation"
-    ],
-    "correct": 0
-  },
-  {
-    "text": "Paper wallet is?",
-    "options": [
-      "Printed keys/seed offline",
-      "Hot browser plugin",
-      "Bank account",
-      "NFT image"
-    ],
-    "correct": 0
-  }
+  { "text": "What is Redstone DeFi?", "options": ["DeFi", "EXMP", "Example C", "Example D"], "correct": 0, "mode": "beginner" },
+  { "text": "What does DeFi stand for?", "options": ["Decentralized Finance", "Defined Finance", "Default Finance", "Deferred Finance"], "correct": 0, "mode": "beginner" },
+  { "text": "What is Bitcoin's ticker?", "options": ["BTC", "BTX", "XBC", "BCN"], "correct": 0, "mode": "beginner" },
+  { "text": "Ethereum's native coin is?", "options": ["ETH", "ETC", "ETF", "ETN"], "correct": 0, "mode": "beginner" },
+  { "text": "DEX stands for?", "options": ["Decentralized Exchange", "Digital Email eXchange", "Data EXtractor", "Direct EXecution"], "correct": 0, "mode": "beginner" },
+  { "text": "Smart contracts run on?", "options": ["Blockchain", "Email", "Spreadsheet", "CDN"], "correct": 0, "mode": "beginner" },
+  { "text": "Which is a stablecoin?", "options": ["USDC", "ETH", "BTC", "MATIC"], "correct": 0, "mode": "beginner" },
+  { "text": "'Gas fee' refers to?", "options": ["Transaction fee", "Car fuel cost", "App install size", "Internet bill"], "correct": 0, "mode": "beginner" },
+  { "text": "A wallet kept offline is called a?", "options": ["Cold wallet", "Hot wallet", "Custodial wallet", "Browser wallet"], "correct": 0, "mode": "beginner" },
+  { "text": "Which is EVM-compatible?", "options": ["Polygon", "Solana", "Bitcoin", "Ripple"], "correct": 0, "mode": "beginner" },
+  { "text": "A liquidity pool commonly holds?", "options": ["Two tokens", "Four tokens", "Only NFTs", "Only one token"], "correct": 0, "mode": "beginner" },
+  { "text": "AMM stands for?", "options": ["Automated Market Maker", "Automatic Money Manager", "Asset Match Mechanism", "Average Market Metric"], "correct": 0, "mode": "beginner" },
+  { "text": "Slippage is?", "options": ["Price difference vs expected", "Seed phrase", "Block time", "Hash rate"], "correct": 0, "mode": "beginner" },
+  { "text": "Typical seed phrase length?", "options": ["12 or 24 words", "4 words", "64 digits", "1 word"], "correct": 0, "mode": "beginner" },
+  { "text": "NFT stands for?", "options": ["Non-Fungible Token", "New Finance Token", "Network Fee Token", "Non-Financial Transfer"], "correct": 0, "mode": "beginner" },
+  { "text": "Which is a Layer 2?", "options": ["Arbitrum", "Bitcoin", "Monero", "Litecoin"], "correct": 0, "mode": "beginner" },
+  { "text": "Oracles provide?", "options": ["Off-chain data to contracts", "Custody service", "Wallet UI", "Password resets"], "correct": 0, "mode": "beginner" },
+  { "text": "Governance tokens are for?", "options": ["Voting in protocols", "Paying Bitcoin gas", "GPU mining", "Replacing seed phrases"], "correct": 0, "mode": "beginner" },
+  { "text": "Impermanent loss happens when?", "options": ["Providing liquidity", "Only staking", "Sending tokens", "Buying NFTs"], "correct": 0, "mode": "beginner" },
+  { "text": "A bridge lets you?", "options": ["Move assets across chains", "Mine blocks", "Verify social media", "Compress images"], "correct": 0, "mode": "beginner" },
+  { "text": "Your private key should be?", "options": ["Kept secret", "Shared with friends", "Emailed to support", "Posted online"], "correct": 0, "mode": "beginner" },
+  { "text": "A transaction is confirmed when?", "options": ["It's in a block", "Wallet hits 0", "Website loads", "Gas is cheap"], "correct": 0, "mode": "beginner" },
+  { "text": "Etherscan is a(n)?", "options": ["Block explorer", "Wallet app", "Exchange", "Game"], "correct": 0, "mode": "beginner" },
+  { "text": "DeFi lending example?", "options": ["Aave", "Photoshop", "Outlook", "macOS"], "correct": 0, "mode": "beginner" },
+  { "text": "dApp means?", "options": ["Decentralized Application", "Direct App", "Distributed Approval", "Digital Application"], "correct": 0, "mode": "beginner" },
+  { "text": "Staking generally means?", "options": ["Lock tokens for rewards", "Spend tokens", "Burn tokens", "Print tokens"], "correct": 0, "mode": "beginner" },
+  { "text": "Multi-sig wallets require?", "options": ["Multiple approvals", "High gas", "NFTs", "Credit cards"], "correct": 0, "mode": "beginner" },
+  { "text": "DAO stands for?", "options": ["Decentralized Autonomous Organization", "Data Asset Owner", "Digital Account Org", "Dynamic Access Office"], "correct": 0, "mode": "beginner" },
+  { "text": "Rug pull means?", "options": ["Dev drains liquidity", "Successful audit", "Price stabilization", "New roadmap"], "correct": 0, "mode": "beginner" },
+  { "text": "KYC stands for?", "options": ["Know Your Customer", "Key Your Crypto", "Keep Your Coins", "Know Your Contract"], "correct": 0, "mode": "beginner" },
+  { "text": "Gas on Ethereum is paid in?", "options": ["ETH", "USDC", "BTC", "DAI"], "correct": 0, "mode": "beginner" },
+  { "text": "Flash loan is?", "options": ["Uncollateralized loan in 1 tx", "Loan for real estate", "Long-term bond", "Insurance policy"], "correct": 0, "mode": "beginner" },
+  { "text": "Yield farming involves?", "options": ["Earning by providing liquidity", "Mining GPUs", "Buying hardware", "Playing games"], "correct": 0, "mode": "beginner" },
+  { "text": "Token burn means?", "options": ["Permanently removing tokens", "Heating a wallet", "Sending to a friend", "Listing on CEX"], "correct": 0, "mode": "beginner" },
+  { "text": "A fork is?", "options": ["Network splits into versions", "Wallet disconnect", "UI redesign", "Gas refund"], "correct": 0, "mode": "beginner" },
+  { "text": "TVL stands for?", "options": ["Total Value Locked", "Token Volume Liquidity", "Total Volume Leverage", "Traded Value Level"], "correct": 0, "mode": "beginner" },
+  { "text": "MEV means?", "options": ["Maximal Extractable Value", "Minimum Exchange Volume", "Mean Ethereum Value", "Market Equity Value"], "correct": 0, "mode": "beginner" },
+  { "text": "An airdrop is?", "options": ["Token distribution to users", "Apple file transfer only", "NFT burning", "Fiat loan"], "correct": 0, "mode": "beginner" },
+  { "text": "A faucet provides?", "options": ["Small test tokens", "Custody", "KYC", "Hardware"], "correct": 0, "mode": "beginner" },
+  { "text": "Hash function property?", "options": ["One-way", "Two-way", "Needs password", "Human-readable"], "correct": 0, "mode": "beginner" },
+  { "text": "PoS stands for?", "options": ["Proof of Stake", "Point of Sale", "Proof of Seed", "Price of Stock"], "correct": 0, "mode": "beginner" },
+  { "text": "Block time is?", "options": ["Avg time to make a block", "Tx fee", "DST", "Key rotation"], "correct": 0, "mode": "beginner" },
+  { "text": "ENS is?", "options": ["Ethereum Name Service", "Enterprise Node System", "Exchange Network Service", "Ethereum Node Scheduler"], "correct": 0, "mode": "beginner" },
+  { "text": "Reduce contract bugs via?", "options": ["Audits & testing", "Rug pulls", "Low TVL", "High gas fees"], "correct": 0, "mode": "beginner" },
+  { "text": "Decentralization improves?", "options": ["Censorship resistance", "Central control", "Single failure point", "Password resets"], "correct": 0, "mode": "beginner" },
+  { "text": "Stablecoins aim to?", "options": ["Maintain price stability", "Double daily", "Be NFTs", "Mine blocks"], "correct": 0, "mode": "beginner" },
+  { "text": "Bridge risk includes?", "options": ["Smart contract exploits", "Better UX", "Lower latency", "Free gas"], "correct": 0, "mode": "beginner" },
+  { "text": "Slippage tolerance is?", "options": ["Max allowed price deviation", "Wallet USD value", "Gas cap", "Block number"], "correct": 0, "mode": "beginner" },
+  { "text": "DCA stands for?", "options": ["Dollar-Cost Averaging", "Decentralized Chain Access", "Direct Contract Audit", "Dynamic Crypto Allocation"], "correct": 0, "mode": "beginner" },
+  { "text": "Paper wallet is?", "options": ["Printed keys/seed offline", "Hot browser plugin", "Bank account", "NFT image"], "correct": 0, "mode": "beginner" },
+
+  { "text": "What is Redstone DeFi?", "options": ["DeFi", "EXMP", "Example C", "Example D"], "correct": 0, "mode": "standard" },
+  { "text": "What does DeFi stand for?", "options": ["Decentralized Finance", "Defined Finance", "Default Finance", "Deferred Finance"], "correct": 0, "mode": "standard" },
+  { "text": "What is Bitcoin's ticker?", "options": ["BTC", "BTX", "XBC", "BCN"], "correct": 0, "mode": "standard" },
+  { "text": "Ethereum's native coin is?", "options": ["ETH", "ETC", "ETF", "ETN"], "correct": 0, "mode": "standard" },
+  { "text": "DEX stands for?", "options": ["Decentralized Exchange", "Digital Email eXchange", "Data EXtractor", "Direct EXecution"], "correct": 0, "mode": "standard" },
+  { "text": "Smart contracts run on?", "options": ["Blockchain", "Email", "Spreadsheet", "CDN"], "correct": 0, "mode": "standard" },
+  { "text": "Which is a stablecoin?", "options": ["USDC", "ETH", "BTC", "MATIC"], "correct": 0, "mode": "standard" },
+  { "text": "'Gas fee' refers to?", "options": ["Transaction fee", "Car fuel cost", "App install size", "Internet bill"], "correct": 0, "mode": "standard" },
+  { "text": "A wallet kept offline is called a?", "options": ["Cold wallet", "Hot wallet", "Custodial wallet", "Browser wallet"], "correct": 0, "mode": "standard" },
+  { "text": "Which is EVM-compatible?", "options": ["Polygon", "Solana", "Bitcoin", "Ripple"], "correct": 0, "mode": "standard" },
+  { "text": "A liquidity pool commonly holds?", "options": ["Two tokens", "Four tokens", "Only NFTs", "Only one token"], "correct": 0, "mode": "standard" },
+  { "text": "AMM stands for?", "options": ["Automated Market Maker", "Automatic Money Manager", "Asset Match Mechanism", "Average Market Metric"], "correct": 0, "mode": "standard" },
+  { "text": "Slippage is?", "options": ["Price difference vs expected", "Seed phrase", "Block time", "Hash rate"], "correct": 0, "mode": "standard" },
+  { "text": "Typical seed phrase length?", "options": ["12 or 24 words", "4 words", "64 digits", "1 word"], "correct": 0, "mode": "standard" },
+  { "text": "NFT stands for?", "options": ["Non-Fungible Token", "New Finance Token", "Network Fee Token", "Non-Financial Transfer"], "correct": 0, "mode": "standard" },
+  { "text": "Which is a Layer 2?", "options": ["Arbitrum", "Bitcoin", "Monero", "Litecoin"], "correct": 0, "mode": "standard" },
+  { "text": "Oracles provide?", "options": ["Off-chain data to contracts", "Custody service", "Wallet UI", "Password resets"], "correct": 0, "mode": "standard" },
+  { "text": "Governance tokens are for?", "options": ["Voting in protocols", "Paying Bitcoin gas", "GPU mining", "Replacing seed phrases"], "correct": 0, "mode": "standard" },
+  { "text": "Impermanent loss happens when?", "options": ["Providing liquidity", "Only staking", "Sending tokens", "Buying NFTs"], "correct": 0, "mode": "standard" },
+  { "text": "A bridge lets you?", "options": ["Move assets across chains", "Mine blocks", "Verify social media", "Compress images"], "correct": 0, "mode": "standard" },
+  { "text": "Your private key should be?", "options": ["Kept secret", "Shared with friends", "Emailed to support", "Posted online"], "correct": 0, "mode": "standard" },
+  { "text": "A transaction is confirmed when?", "options": ["It's in a block", "Wallet hits 0", "Website loads", "Gas is cheap"], "correct": 0, "mode": "standard" },
+  { "text": "Etherscan is a(n)?", "options": ["Block explorer", "Wallet app", "Exchange", "Game"], "correct": 0, "mode": "standard" },
+  { "text": "DeFi lending example?", "options": ["Aave", "Photoshop", "Outlook", "macOS"], "correct": 0, "mode": "standard" },
+  { "text": "dApp means?", "options": ["Decentralized Application", "Direct App", "Distributed Approval", "Digital Application"], "correct": 0, "mode": "standard" },
+  { "text": "Staking generally means?", "options": ["Lock tokens for rewards", "Spend tokens", "Burn tokens", "Print tokens"], "correct": 0, "mode": "standard" },
+  { "text": "Multi-sig wallets require?", "options": ["Multiple approvals", "High gas", "NFTs", "Credit cards"], "correct": 0, "mode": "standard" },
+  { "text": "DAO stands for?", "options": ["Decentralized Autonomous Organization", "Data Asset Owner", "Digital Account Org", "Dynamic Access Office"], "correct": 0, "mode": "standard" },
+  { "text": "Rug pull means?", "options": ["Dev drains liquidity", "Successful audit", "Price stabilization", "New roadmap"], "correct": 0, "mode": "standard" },
+  { "text": "KYC stands for?", "options": ["Know Your Customer", "Key Your Crypto", "Keep Your Coins", "Know Your Contract"], "correct": 0, "mode": "standard" },
+  { "text": "Gas on Ethereum is paid in?", "options": ["ETH", "USDC", "BTC", "DAI"], "correct": 0, "mode": "standard" },
+  { "text": "Flash loan is?", "options": ["Uncollateralized loan in 1 tx", "Loan for real estate", "Long-term bond", "Insurance policy"], "correct": 0, "mode": "standard" },
+  { "text": "Yield farming involves?", "options": ["Earning by providing liquidity", "Mining GPUs", "Buying hardware", "Playing games"], "correct": 0, "mode": "standard" },
+  { "text": "Token burn means?", "options": ["Permanently removing tokens", "Heating a wallet", "Sending to a friend", "Listing on CEX"], "correct": 0, "mode": "standard" },
+  { "text": "A fork is?", "options": ["Network splits into versions", "Wallet disconnect", "UI redesign", "Gas refund"], "correct": 0, "mode": "standard" },
+  { "text": "TVL stands for?", "options": ["Total Value Locked", "Token Volume Liquidity", "Total Volume Leverage", "Traded Value Level"], "correct": 0, "mode": "standard" },
+  { "text": "MEV means?", "options": ["Maximal Extractable Value", "Minimum Exchange Volume", "Mean Ethereum Value", "Market Equity Value"], "correct": 0, "mode": "standard" },
+  { "text": "An airdrop is?", "options": ["Token distribution to users", "Apple file transfer only", "NFT burning", "Fiat loan"], "correct": 0, "mode": "standard" },
+  { "text": "A faucet provides?", "options": ["Small test tokens", "Custody", "KYC", "Hardware"], "correct": 0, "mode": "standard" },
+  { "text": "Hash function property?", "options": ["One-way", "Two-way", "Needs password", "Human-readable"], "correct": 0, "mode": "standard" },
+  { "text": "PoS stands for?", "options": ["Proof of Stake", "Point of Sale", "Proof of Seed", "Price of Stock"], "correct": 0, "mode": "standard" },
+  { "text": "Block time is?", "options": ["Avg time to make a block", "Tx fee", "DST", "Key rotation"], "correct": 0, "mode": "standard" },
+  { "text": "ENS is?", "options": ["Ethereum Name Service", "Enterprise Node System", "Exchange Network Service", "Ethereum Node Scheduler"], "correct": 0, "mode": "standard" },
+  { "text": "Reduce contract bugs via?", "options": ["Audits & testing", "Rug pulls", "Low TVL", "High gas fees"], "correct": 0, "mode": "standard" },
+  { "text": "Decentralization improves?", "options": ["Censorship resistance", "Central control", "Single failure point", "Password resets"], "correct": 0, "mode": "standard" },
+  { "text": "Stablecoins aim to?", "options": ["Maintain price stability", "Double daily", "Be NFTs", "Mine blocks"], "correct": 0, "mode": "standard" },
+  { "text": "Bridge risk includes?", "options": ["Smart contract exploits", "Better UX", "Lower latency", "Free gas"], "correct": 0, "mode": "standard" },
+  { "text": "Slippage tolerance is?", "options": ["Max allowed price deviation", "Wallet USD value", "Gas cap", "Block number"], "correct": 0, "mode": "standard" },
+  { "text": "DCA stands for?", "options": ["Dollar-Cost Averaging", "Decentralized Chain Access", "Direct Contract Audit", "Dynamic Crypto Allocation"], "correct": 0, "mode": "standard" },
+  { "text": "Paper wallet is?", "options": ["Printed keys/seed offline", "Hot browser plugin", "Bank account", "NFT image"], "correct": 0, "mode": "standard" },
+
+  { "text": "What is Redstone DeFi?", "options": ["DeFi", "EXMP", "Example C", "Example D"], "correct": 0, "mode": "expert" },
+  { "text": "What does DeFi stand for?", "options": ["Decentralized Finance", "Defined Finance", "Default Finance", "Deferred Finance"], "correct": 0, "mode": "expert" },
+  { "text": "What is Bitcoin's ticker?", "options": ["BTC", "BTX", "XBC", "BCN"], "correct": 0, "mode": "expert" },
+  { "text": "Ethereum's native coin is?", "options": ["ETH", "ETC", "ETF", "ETN"], "correct": 0, "mode": "expert" },
+  { "text": "DEX stands for?", "options": ["Decentralized Exchange", "Digital Email eXchange", "Data EXtractor", "Direct EXecution"], "correct": 0, "mode": "expert" },
+  { "text": "Smart contracts run on?", "options": ["Blockchain", "Email", "Spreadsheet", "CDN"], "correct": 0, "mode": "expert" },
+  { "text": "Which is a stablecoin?", "options": ["USDC", "ETH", "BTC", "MATIC"], "correct": 0, "mode": "expert" },
+  { "text": "'Gas fee' refers to?", "options": ["Transaction fee", "Car fuel cost", "App install size", "Internet bill"], "correct": 0, "mode": "expert" },
+  { "text": "A wallet kept offline is called a?", "options": ["Cold wallet", "Hot wallet", "Custodial wallet", "Browser wallet"], "correct": 0, "mode": "expert" },
+  { "text": "Which is EVM-compatible?", "options": ["Polygon", "Solana", "Bitcoin", "Ripple"], "correct": 0, "mode": "expert" },
+  { "text": "A liquidity pool commonly holds?", "options": ["Two tokens", "Four tokens", "Only NFTs", "Only one token"], "correct": 0, "mode": "expert" },
+  { "text": "AMM stands for?", "options": ["Automated Market Maker", "Automatic Money Manager", "Asset Match Mechanism", "Average Market Metric"], "correct": 0, "mode": "expert" },
+  { "text": "Slippage is?", "options": ["Price difference vs expected", "Seed phrase", "Block time", "Hash rate"], "correct": 0, "mode": "expert" },
+  { "text": "Typical seed phrase length?", "options": ["12 or 24 words", "4 words", "64 digits", "1 word"], "correct": 0, "mode": "expert" },
+  { "text": "NFT stands for?", "options": ["Non-Fungible Token", "New Finance Token", "Network Fee Token", "Non-Financial Transfer"], "correct": 0, "mode": "expert" },
+  { "text": "Which is a Layer 2?", "options": ["Arbitrum", "Bitcoin", "Monero", "Litecoin"], "correct": 0, "mode": "expert" },
+  { "text": "Oracles provide?", "options": ["Off-chain data to contracts", "Custody service", "Wallet UI", "Password resets"], "correct": 0, "mode": "expert" },
+  { "text": "Governance tokens are for?", "options": ["Voting in protocols", "Paying Bitcoin gas", "GPU mining", "Replacing seed phrases"], "correct": 0, "mode": "expert" },
+  { "text": "Impermanent loss happens when?", "options": ["Providing liquidity", "Only staking", "Sending tokens", "Buying NFTs"], "correct": 0, "mode": "expert" },
+  { "text": "A bridge lets you?", "options": ["Move assets across chains", "Mine blocks", "Verify social media", "Compress images"], "correct": 0, "mode": "expert" },
+  { "text": "Your private key should be?", "options": ["Kept secret", "Shared with friends", "Emailed to support", "Posted online"], "correct": 0, "mode": "expert" },
+  { "text": "A transaction is confirmed when?", "options": ["It's in a block", "Wallet hits 0", "Website loads", "Gas is cheap"], "correct": 0, "mode": "expert" },
+  { "text": "Etherscan is a(n)?", "options": ["Block explorer", "Wallet app", "Exchange", "Game"], "correct": 0, "mode": "expert" },
+  { "text": "DeFi lending example?", "options": ["Aave", "Photoshop", "Outlook", "macOS"], "correct": 0, "mode": "expert" },
+  { "text": "dApp means?", "options": ["Decentralized Application", "Direct App", "Distributed Approval", "Digital Application"], "correct": 0, "mode": "expert" },
+  { "text": "Staking generally means?", "options": ["Lock tokens for rewards", "Spend tokens", "Burn tokens", "Print tokens"], "correct": 0, "mode": "expert" },
+  { "text": "Multi-sig wallets require?", "options": ["Multiple approvals", "High gas", "NFTs", "Credit cards"], "correct": 0, "mode": "expert" },
+  { "text": "DAO stands for?", "options": ["Decentralized Autonomous Organization", "Data Asset Owner", "Digital Account Org", "Dynamic Access Office"], "correct": 0, "mode": "expert" },
+  { "text": "Rug pull means?", "options": ["Dev drains liquidity", "Successful audit", "Price stabilization", "New roadmap"], "correct": 0, "mode": "expert" },
+  { "text": "KYC stands for?", "options": ["Know Your Customer", "Key Your Crypto", "Keep Your Coins", "Know Your Contract"], "correct": 0, "mode": "expert" },
+  { "text": "Gas on Ethereum is paid in?", "options": ["ETH", "USDC", "BTC", "DAI"], "correct": 0, "mode": "expert" },
+  { "text": "Flash loan is?", "options": ["Uncollateralized loan in 1 tx", "Loan for real estate", "Long-term bond", "Insurance policy"], "correct": 0, "mode": "expert" },
+  { "text": "Yield farming involves?", "options": ["Earning by providing liquidity", "Mining GPUs", "Buying hardware", "Playing games"], "correct": 0, "mode": "expert" },
+  { "text": "Token burn means?", "options": ["Permanently removing tokens", "Heating a wallet", "Sending to a friend", "Listing on CEX"], "correct": 0, "mode": "expert" },
+  { "text": "A fork is?", "options": ["Network splits into versions", "Wallet disconnect", "UI redesign", "Gas refund"], "correct": 0, "mode": "expert" },
+  { "text": "TVL stands for?", "options": ["Total Value Locked", "Token Volume Liquidity", "Total Volume Leverage", "Traded Value Level"], "correct": 0, "mode": "expert" },
+  { "text": "MEV means?", "options": ["Maximal Extractable Value", "Minimum Exchange Volume", "Mean Ethereum Value", "Market Equity Value"], "correct": 0, "mode": "expert" },
+  { "text": "An airdrop is?", "options": ["Token distribution to users", "Apple file transfer only", "NFT burning", "Fiat loan"], "correct": 0, "mode": "expert" },
+  { "text": "A faucet provides?", "options": ["Small test tokens", "Custody", "KYC", "Hardware"], "correct": 0, "mode": "expert" },
+  { "text": "Hash function property?", "options": ["One-way", "Two-way", "Needs password", "Human-readable"], "correct": 0, "mode": "expert" },
+  { "text": "PoS stands for?", "options": ["Proof of Stake", "Point of Sale", "Proof of Seed", "Price of Stock"], "correct": 0, "mode": "expert" },
+  { "text": "Block time is?", "options": ["Avg time to make a block", "Tx fee", "DST", "Key rotation"], "correct": 0, "mode": "expert" },
+  { "text": "ENS is?", "options": ["Ethereum Name Service", "Enterprise Node System", "Exchange Network Service", "Ethereum Node Scheduler"], "correct": 0, "mode": "expert" },
+  { "text": "Reduce contract bugs via?", "options": ["Audits & testing", "Rug pulls", "Low TVL", "High gas fees"], "correct": 0, "mode": "expert" },
+  { "text": "Decentralization improves?", "options": ["Censorship resistance", "Central control", "Single failure point", "Password resets"], "correct": 0, "mode": "expert" },
+  { "text": "Stablecoins aim to?", "options": ["Maintain price stability", "Double daily", "Be NFTs", "Mine blocks"], "correct": 0, "mode": "expert" },
+  { "text": "Bridge risk includes?", "options": ["Smart contract exploits", "Better UX", "Lower latency", "Free gas"], "correct": 0, "mode": "expert" },
+  { "text": "Slippage tolerance is?", "options": ["Max allowed price deviation", "Wallet USD value", "Gas cap", "Block number"], "correct": 0, "mode": "expert" },
+  { "text": "DCA stands for?", "options": ["Dollar-Cost Averaging", "Decentralized Chain Access", "Direct Contract Audit", "Dynamic Crypto Allocation"], "correct": 0, "mode": "expert" },
+  { "text": "Paper wallet is?", "options": ["Printed keys/seed offline", "Hot browser plugin", "Bank account", "NFT image"], "correct": 0, "mode": "expert" }
 ]
