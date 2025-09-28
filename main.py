@@ -124,13 +124,44 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass  # benign edit conflicts are fine
 
+# NEW: live countdown for the gap between questions
+async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
+    """Edits the 'Next question…' message every second with a live countdown."""
+    data = context.job.data
+    chat_id = data["chat_id"]; msg_id = data["msg_id"]; end_ts = data["end_ts"]
+    st = GAMES.get(chat_id)
+    if not st:
+        context.job.schedule_removal()
+        return
+    left = int(round(end_ts - time.time()))
+    if left <= 0:
+        context.job.schedule_removal()
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id, message_id=msg_id,
+                text="🚀 Starting next question…"
+            )
+        except Exception:
+            pass
+        return
+    try:
+        await context.bot.edit_message_text(
+            chat_id=chat_id, message_id=msg_id,
+            text=f"⏭️ Next question is coming in {left}s…"
+        )
+    except Exception:
+        # ignore benign race/duplicate edits
+        pass
+
+# REPLACE your old close_question with this version
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
-    """Close the question, then wait DELAY_NEXT seconds and move on."""
+    """Close the question, then show a live countdown to the next question."""
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
     if not st: return
     st.locked = True
-    # Edit question to show 0s and remove buttons
+
+    # Freeze the question at 0s and remove buttons
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
@@ -139,45 +170,21 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception:
         pass
-    # Friendly notice about the gap
-    try:
-        await context.bot.send_message(chat_id=chat_id, text=f"⏭️ Next question is coming in {DELAY_NEXT}s…")
-    except Exception:
-        pass
-    context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
-async def next_question(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data["chat_id"]
-    st = GAMES.get(chat_id)
-    if not st: return
-    st.q_index += 1
-    if st.q_index >= st.limit:
-        await finish_quiz(context, st); return
-    await ask_question(context, st)
-
-async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
-    q = st.questions[st.q_index]
-    msg = await context.bot.send_message(
-        chat_id=st.chat_id,
-        text=fmt_question(st.theme, st.q_index+1, st.limit, q, QUESTION_TIME),
-        reply_markup=answer_kb(q, st.q_index+1),
-        parse_mode="Markdown"
+    # Post the "next question" message and live-edit it every second
+    gap_end = time.time() + DELAY_NEXT
+    gap_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"⏭️ Next question is coming in {DELAY_NEXT}s…"
     )
-    st.q_msg_id = msg.message_id
-    st.q_start_ts = time.time()
-    st.locked = False
-    end_ts = st.q_start_ts + QUESTION_TIME
-    # repeat: tick every 1s on THIS message id
     context.job_queue.run_repeating(
-        tick_edit, interval=1.0, first=1.0,
-        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "end_ts": end_ts},
-        name=f"tick:{st.chat_id}:{st.q_index}"
+        gap_tick, interval=1.0, first=1.0,
+        data={"chat_id": chat_id, "msg_id": gap_msg.message_id, "end_ts": gap_end},
+        name=f"gap:{chat_id}:{st.q_index}"
     )
-    # auto-close after QUESTION_TIME
-    context.job_queue.run_once(
-        close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id},
-        name=f"close:{st.chat_id}:{st.q_index}"
-    )
+
+    # Move on after the configured gap
+    context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 # ---------- Helpers ----------
 async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
