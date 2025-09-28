@@ -1,8 +1,8 @@
-# Quiz Bot — Modes (Beginner/Standard/Expert), Admin-only, 20s gap, Answers via /answer
+# Quiz Bot — Modes, Admin-only, 20s gap, Answers via /answer, Clean/Fun themes
 # deps: python-telegram-bot[job-queue]==21.*
 
 from __future__ import annotations
-import os, json, time, random, math
+import os, json, time, random
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 
 # ---------- CONFIG ----------
 QUESTION_TIME = 15            # seconds to answer
-DELAY_NEXT    = 20            # <- 20s gap after each question (no per-question reveal)
+DELAY_NEXT    = 20            # 20s gap after each question (no per-question reveal)
 POINTS_MAX    = 100
 QUESTIONS_FILE = "questions.json"
 
@@ -63,7 +63,8 @@ def points(elapsed: float) -> int:
     return int(round((max(0.0, QUESTION_TIME - elapsed)/QUESTION_TIME)*POINTS_MAX))
 
 def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton(f"{chr(65+i)}. {opt}", callback_data=f"ans:{qnum}:{i}")]
+    # No A/B/C/D prefixes — buttons are just the option text
+    return InlineKeyboardMarkup([[InlineKeyboardButton(opt, callback_data=f"ans:{qnum}:{i}")]
                                 for i,opt in enumerate(q.options)])
 
 def fmt_question(theme: str, qnum: int, total: int, q: QItem, left: Optional[int]=None) -> str:
@@ -102,22 +103,29 @@ def shuffle_qs(qs: List[QItem]) -> List[QItem]:
 
 # ---------- Jobs / Flow ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data["chat_id"]
+    """Edit the same message every second to update the numeric countdown."""
+    data = context.job.data
+    chat_id = data["chat_id"]; msg_id = data["msg_id"]; end_ts = data["end_ts"]
     st = GAMES.get(chat_id)
-    if not st: return
-    left = int(round(context.job.data["end_ts"] - time.time()))
-    left = max(0, left)
+    if not st: 
+        context.job.schedule_removal(); 
+        return
+    left = int(round(end_ts - time.time()))
+    if left <= 0:
+        context.job.schedule_removal()
+        left = 0
     try:
         await context.bot.edit_message_text(
-            chat_id=chat_id, message_id=st.q_msg_id,
+            chat_id=chat_id, message_id=msg_id,
             text=fmt_question(st.theme, st.q_index+1, st.limit, st.questions[st.q_index], left),
             reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
             parse_mode="Markdown"
         )
     except Exception:
-        pass
+        pass  # benign edit conflicts are fine
 
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
+    """Close the question, then wait DELAY_NEXT seconds and move on."""
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
     if not st: return
@@ -130,7 +138,6 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception:
         pass
-    # wait 20s, then next (NO per-question reveal)
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 async def next_question(context: ContextTypes.DEFAULT_TYPE):
@@ -154,11 +161,13 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     st.q_start_ts = time.time()
     st.locked = False
     end_ts = st.q_start_ts + QUESTION_TIME
+    # repeat: tick every 1s on THIS message id
     context.job_queue.run_repeating(
         tick_edit, interval=1.0, first=1.0,
-        data={"chat_id": st.chat_id, "end_ts": end_ts},
+        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "end_ts": end_ts},
         name=f"tick:{st.chat_id}:{st.q_index}"
     )
+    # auto-close after QUESTION_TIME
     context.job_queue.run_once(
         close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id},
         name=f"close:{st.chat_id}:{st.q_index}"
@@ -337,24 +346,27 @@ async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if st:
         scores, corrects = compute_scores(st)
         source = f"Current session — {st.q_index+1}/{st.limit} asked"
+        name_of = st.players
     else:
         snap = LAST.get(chat_id)
         if not snap:
             await update.message.reply_text("No session found here yet."); return
         scores = snap["scores"]; corrects = snap["corrects"]
         source = f"Last finished — {snap['limit']} questions"
+        name_of = snap["players"]
 
     if not scores:
         await update.message.reply_text("No participants yet."); return
 
     ranking = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    # map ids to names
-    name_of = (st.players if st else LAST.get(chat_id, {}).get("players", {}))
     lines = [f"{s['flag']} *Leaderboard* ({source})"]
     for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
         name = name_of.get(uid, str(uid))
         corr = corrects.get(uid, 0)
-        medal = "🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}."
+        medal = ("🥇" if rank == 1 else
+                 "🥈" if rank == 2 else
+                 "🥉" if rank == 3 else
+                 f"{rank}.")
         lines.append(f"{medal} {name} — {corr} correct — {pts_} pts")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
@@ -366,9 +378,8 @@ async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     qs: List[QItem] = snap["questions"]
     lines = ["📘 *All Correct Answers*"]
     for i,q in enumerate(qs, start=1):
-        lines.append(f"Q{i}: *{chr(65+q.correct)}. {q.options[q.correct]}*")
-        # Telegram message length limit; chunk if long
-        if len("\n".join(lines)) > 3500:
+        lines.append(f"Q{i}: *{q.options[q.correct]}*")
+        if len("\n".join(lines)) > 3500:  # chunk to respect Telegram limits
             await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
             lines = []
     if lines:
@@ -391,10 +402,69 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         parse_mode="Markdown"
     )
 
-    # Final results (no per-question answers; use /answer)
+    # Final results (answers via /answer)
     s = style_from_theme(st.theme)
     lines=[f"{s['flag']} *Final Results* — Top 10"]
     for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
         name = st.players.get(uid, str(uid))
         corr = corrects.get(uid, 0)
-        medal = "🥇" if rank==1 else "🥈
+        medal = ("🥇" if rank == 1 else
+                 "🥈" if rank == 2 else
+                 "🥉" if rank == 3 else
+                 f"{rank}.")
+        lines.append(f"{medal} {name} — {corr}/{st.limit} correct — {pts_} pts")
+    lines.append("\nUse /leaderboard anytime. Use /answer to reveal all correct answers.")
+    await context.bot.send_message(chat_id=st.chat_id, text="\n".join(lines), parse_mode="Markdown")
+
+    # Snapshot for /answer and /leaderboard
+    LAST[st.chat_id] = {
+        "questions": st.questions,
+        "limit": st.limit,
+        "scores": scores,
+        "corrects": corrects,
+        "players": st.players,
+        "mode": st.mode,
+        "theme": st.theme,
+    }
+
+    # Clear active session
+    GAMES.pop(st.chat_id, None)
+
+async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    # admin-only in groups
+    if update.effective_chat.type != "private":
+        if not await is_admin(context, chat_id, update.effective_user.id):
+            await update.message.reply_text("Only group admins can stop the quiz.")
+            return
+    st = GAMES.get(chat_id)
+    if not st:
+        await update.message.reply_text("No active quiz to stop."); return
+    st.limit = st.q_index + 1
+    await finish_quiz(context, st)
+
+async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    GAMES.pop(chat_id, None)
+    LAST.pop(chat_id, None)
+    context.chat_data.clear()
+    await update.message.reply_text("✅ Reset complete. Use /menu to set Mode & Length, then /startquiz.")
+
+def build_app() -> Application:
+    token = os.getenv("BOT_TOKEN")
+    if not token: raise RuntimeError("Set BOT_TOKEN environment variable.")
+    app = Application.builder().token(token).build()
+    app.add_handler(CommandHandler("start",       cmd_start))
+    app.add_handler(CommandHandler("menu",        cmd_menu))
+    app.add_handler(CallbackQueryHandler(cfg_click, pattern=r"^cfg:"))
+    app.add_handler(CommandHandler("startquiz",   cmd_startquiz))
+    app.add_handler(CommandHandler("leaderboard", cmd_leaderboard))
+    app.add_handler(CommandHandler("answer",      cmd_answer))
+    app.add_handler(CommandHandler("stopquiz",    cmd_stop))
+    app.add_handler(CommandHandler("reset",       cmd_reset))
+    app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
+    return app
+
+if __name__ == "__main__":
+    print("Starting quiz bot…")
+    build_app().run_polling(close_loop=False)
