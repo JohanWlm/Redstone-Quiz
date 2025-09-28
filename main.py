@@ -1,4 +1,4 @@
-# Quiz Bot — Modes, Admin-only, 20s gap, Answers via /answer, Clean/Fun themes
+# Quiz Bot — Two-step setup (mode -> length), admin-only, 20s gap, answers via /answer
 # deps: python-telegram-bot[job-queue]==21.*
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ QUESTIONS_FILE = "questions.json"
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
-DEFAULT_THEME = "fun"         # "clean" or "fun"
+DEFAULT_THEME = "fun"         # "clean" or "fun" (kept internal)
 # ----------------------------
 
 @dataclass
@@ -69,7 +69,7 @@ def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
 
 def fmt_question(theme: str, qnum: int, total: int, q: QItem, left: Optional[int]=None) -> str:
     s = style_from_theme(theme)
-    head = f"{s['q']} *Question {qnum}/{total}* — *{q.mode.title()}*\n{q.text}"
+    head = f"{s['q']} *Question {qnum}/{total}*\n{q.text}"
     if left is not None:
         head += f"\n\n{s['timer']} *{int(left)}s left*"
     return head
@@ -107,8 +107,8 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     data = context.job.data
     chat_id = data["chat_id"]; msg_id = data["msg_id"]; end_ts = data["end_ts"]
     st = GAMES.get(chat_id)
-    if not st: 
-        context.job.schedule_removal(); 
+    if not st:
+        context.job.schedule_removal()
         return
     left = int(round(end_ts - time.time()))
     if left <= 0:
@@ -130,12 +130,18 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     st = GAMES.get(chat_id)
     if not st: return
     st.locked = True
+    # Edit question to show 0s and remove buttons
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
             text=fmt_question(st.theme, st.q_index+1, st.limit, st.questions[st.q_index], 0),
             parse_mode="Markdown"
         )
+    except Exception:
+        pass
+    # Friendly notice about the gap
+    try:
+        await context.bot.send_message(chat_id=chat_id, text=f"⏭️ Next question is coming in {DELAY_NEXT}s…")
     except Exception:
         pass
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
@@ -197,33 +203,36 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     s = style_from_theme(theme)
     await update.message.reply_text(
         f"{s['q']} *Quiz Bot*\n{s['rule']}\n"
-        f"1) /menu — choose *Mode* (Beginner/Standard/Expert), *Length* (10–50), Theme\n"
-        f"2) /startquiz — start (admin-only in groups)\n"
-        f"3) /leaderboard — show ranks (current or last)\n"
-        f"4) /answer — reveal all correct answers (after quiz ends)\n"
-        f"5) /stopquiz — end early\n"
-        f"6) /reset — clear previous session & settings\n\n"
-        f"Current: Mode={mode or '—'} • Length={length or '—'} • Theme={theme.title()}",
+        f"Step 1: /menu — choose *Mode* (Beginner/Standard/Expert)\n"
+        f"Step 2: you'll be prompted to choose *How many questions* (10–50)\n"
+        f"Then: /startquiz — start (admin-only in groups)\n\n"
+        f"Tools: /leaderboard • /answer • /stopquiz • /reset\n\n"
+        f"Current: Mode={mode or '—'} • Length={length or '—'}",
         parse_mode="Markdown"
     )
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    theme = context.chat_data.get("theme", DEFAULT_THEME)
-    length= context.chat_data.get("length") or 10
-    mode  = context.chat_data.get("mode") or "—"
+    # Step 1: choose mode only. After pick, we show length menu.
+    rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
+             InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
+             InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
+    await update.message.reply_text(
+        "*Step 1/2*: Choose a *Mode*.",
+        reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown"
+    )
+
+async def _send_length_menu(update_or_query, context):
     rows = [
-        [InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
-         InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
-         InlineKeyboardButton("Expert", callback_data="cfg:mode:expert")],
         [InlineKeyboardButton("10", callback_data="cfg:len:10"),
          InlineKeyboardButton("20", callback_data="cfg:len:20"),
          InlineKeyboardButton("30", callback_data="cfg:len:30")],
         [InlineKeyboardButton("40", callback_data="cfg:len:40"),
          InlineKeyboardButton("50", callback_data="cfg:len:50")],
-        [InlineKeyboardButton(f"Theme: {theme.title()} (toggle)", callback_data="cfg:theme:toggle")],
     ]
-    await update.message.reply_text(
-        f"*Setup Required*: Choose a *Mode* and *Length*.\nCurrent → Mode: *{mode}*, Length: *{length}*, Theme: *{theme.title()}*",
+    chat_id = update_or_query.effective_chat.id if isinstance(update_or_query, Update) else update_or_query.message.chat.id
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="*Step 2/2*: How many questions will be held?",
         reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown"
     )
 
@@ -243,8 +252,14 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if val not in MODES:
             await q.edit_message_text("Invalid mode."); return
         context.chat_data["mode"] = val
-        await q.edit_message_text(f"Mode set to *{val.title()}*. Use /menu to adjust or /startquiz to begin.", parse_mode="Markdown")
+        # Prompt for length next (step 2)
+        try:
+            await q.edit_message_text(f"Mode set to *{val.title()}* ✅", parse_mode="Markdown")
+        except Exception:
+            pass
+        await _send_length_menu(update, context)
         return
+
     if kind == "len":
         try:
             length = int(val)
@@ -252,12 +267,7 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await q.edit_message_text("Invalid length."); return
         context.chat_data["length"] = length
-        await q.edit_message_text(f"Length set to *{length}*. Use /menu to adjust or /startquiz to begin.", parse_mode="Markdown")
-        return
-    if kind == "theme" and val == "toggle":
-        cur = context.chat_data.get("theme", DEFAULT_THEME)
-        context.chat_data["theme"] = "clean" if cur=="fun" else "fun"
-        await q.edit_message_text(f"Theme set to *{context.chat_data['theme'].title()}*.", parse_mode="Markdown")
+        await q.edit_message_text(f"Length set to *{length}* ✅\nUse /startquiz to begin.", parse_mode="Markdown")
         return
 
 async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -272,9 +282,9 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mode = context.chat_data.get("mode")
     length = context.chat_data.get("length")
-    theme = context.chat_data.get("theme", DEFAULT_THEME)
+    theme = DEFAULT_THEME
     if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
-        await update.message.reply_text("Please run /menu and choose a *Mode* and *Length* first.", parse_mode="Markdown")
+        await update.message.reply_text("Please run /menu and complete *both steps* (Mode and Length) first.", parse_mode="Markdown")
         return
 
     # start new session—clear previous logs/snapshots
@@ -340,7 +350,7 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     st = GAMES.get(chat_id)
-    theme = (st.theme if st else context.chat_data.get("theme", DEFAULT_THEME))
+    theme = (st.theme if st else DEFAULT_THEME)
     s = style_from_theme(theme)
 
     if st:
@@ -368,6 +378,7 @@ async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "🥉" if rank == 3 else
                  f"{rank}.")
         lines.append(f"{medal} {name} — {corr} correct — {pts_} pts")
+    lines.append("\nGG! Thanks for participating 🎉")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -413,7 +424,7 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
                  "🥉" if rank == 3 else
                  f"{rank}.")
         lines.append(f"{medal} {name} — {corr}/{st.limit} correct — {pts_} pts")
-    lines.append("\nUse /leaderboard anytime. Use /answer to reveal all correct answers.")
+    lines.append("\nUse /leaderboard anytime. Use /answer to reveal all correct answers.\nGG! Thanks for participating 🎉")
     await context.bot.send_message(chat_id=st.chat_id, text="\n".join(lines), parse_mode="Markdown")
 
     # Snapshot for /answer and /leaderboard
@@ -448,7 +459,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     GAMES.pop(chat_id, None)
     LAST.pop(chat_id, None)
     context.chat_data.clear()
-    await update.message.reply_text("✅ Reset complete. Use /menu to set Mode & Length, then /startquiz.")
+    await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
 
 def build_app() -> Application:
     token = os.getenv("BOT_TOKEN")
