@@ -1,4 +1,4 @@
-# Quiz Bot — Modes (Beginner/Standard/Expert), Admin-Only in Groups, Clean/Fun Themes
+# Quiz Bot — Modes (Beginner/Standard/Expert), Admin-only, 20s gap, Answers via /answer
 # deps: python-telegram-bot[job-queue]==21.*
 
 from __future__ import annotations
@@ -10,15 +10,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ---------- CONFIG ----------
-QUESTION_TIME = 15
-DELAY_REVEAL = 5
-DELAY_NEXT   = 10
-POINTS_MAX   = 100
+QUESTION_TIME = 15            # seconds to answer
+DELAY_NEXT    = 20            # <- 20s gap after each question (no per-question reveal)
+POINTS_MAX    = 100
 QUESTIONS_FILE = "questions.json"
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
-DEFAULT_THEME = "fun"  # "clean" or "fun"
+DEFAULT_THEME = "fun"         # "clean" or "fun"
 # ----------------------------
 
 @dataclass
@@ -50,24 +49,14 @@ class GameState:
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
     players: Dict[int, str] = field(default_factory=dict)
 
-GAMES: Dict[int, GameState] = {}  # per chat
+GAMES: Dict[int, GameState] = {}  # active per chat
+LAST: Dict[int, dict] = {}        # last finished snapshot per chat (for /answer, /leaderboard)
 
 # ---------- Styles ----------
 def style_from_theme(theme: str) -> Dict[str, str]:
     if theme == "clean":
-        return {"q":"❓","timer":"⏱","ok":"✅","no":"❌","fast":"⟶","flag":"🏁","dot":"•","rule":"──────────"}
-    return {"q":"✨","timer":"⏱️","ok":"✅","no":"❌","fast":"🏃","flag":"🏁","dot":"•","rule":"━━━━━━━━━━"}
-
-def progress_bar_total(cur: int, total: int) -> str:
-    # overall progress (10 blocks)
-    blocks = 10
-    filled = min(blocks, math.floor(((cur-1)/max(1,total))*blocks))
-    return "▰"*filled + "▱"*(blocks-filled)
-
-def progress_bar_time(seconds_left: int) -> str:
-    # 15→10→5→0 in 3 blocks
-    blocks = max(0, math.ceil(seconds_left/5))
-    return "▰"*blocks + "▱"*(3-blocks)
+        return {"q":"❓","timer":"⏱","ok":"✅","no":"❌","flag":"🏁","dot":"•","rule":"──────────"}
+    return {"q":"✨","timer":"⏱️","ok":"✅","no":"❌","flag":"🏁","dot":"•","rule":"━━━━━━━━━━"}
 
 def points(elapsed: float) -> int:
     if elapsed >= QUESTION_TIME: return 0
@@ -77,18 +66,12 @@ def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton(f"{chr(65+i)}. {opt}", callback_data=f"ans:{qnum}:{i}")]
                                 for i,opt in enumerate(q.options)])
 
-def fmt_question(theme: str, qnum: int, total: int, q: QItem, seconds_left: Optional[int]=None) -> str:
+def fmt_question(theme: str, qnum: int, total: int, q: QItem, left: Optional[int]=None) -> str:
     s = style_from_theme(theme)
     head = f"{s['q']} *Question {qnum}/{total}* — *{q.mode.title()}*\n{q.text}"
-    pb_total = progress_bar_total(qnum, total)
-    head += f"\n`{pb_total}`  *(completed: {qnum-1}/{total})*"
-    if seconds_left is not None:
-        head += f"\n\n{s['timer']} *{seconds_left}s*  `{progress_bar_time(seconds_left)}`"
+    if left is not None:
+        head += f"\n\n{s['timer']} *{int(left)}s left*"
     return head
-
-def fmt_correct(theme: str, q: QItem) -> str:
-    s = style_from_theme(theme)
-    return f"{s['ok']} Correct: *{chr(65+q.correct)}. {q.options[q.correct]}*"
 
 # ---------- Load ----------
 def load_questions() -> List[QItem]:
@@ -97,7 +80,7 @@ def load_questions() -> List[QItem]:
     out=[]
     for i,q in enumerate(data, start=1):
         if not all(k in q for k in ("text","options","correct","mode")): raise ValueError(f"Q{i} missing fields")
-        if q["mode"] not in MODES: raise ValueError(f"Q{i} has invalid mode {q['mode']}")
+        if q["mode"] not in MODES: raise ValueError(f"Q{i} invalid mode {q['mode']}")
         if len(q["options"])!=4: raise ValueError(f"Q{i} must have 4 options")
         c=int(q["correct"])
         if not 0<=c<4: raise ValueError(f"Q{i} invalid correct index {c}")
@@ -117,13 +100,13 @@ def shuffle_qs(qs: List[QItem]) -> List[QItem]:
         out.append(QItem(text=q.text, options=new_opts, correct=new_correct, mode=q.mode))
     return out
 
-# ---------- Jobs ----------
+# ---------- Jobs / Flow ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
     if not st: return
     left = int(round(context.job.data["end_ts"] - time.time()))
-    left = max(0, (left//5)*5)  # edit every 5s window
+    left = max(0, left)
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
@@ -147,25 +130,7 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception:
         pass
-    # reveal then next
-    context.job_queue.run_once(reveal_answer, when=DELAY_REVEAL, data={"chat_id": chat_id})
-
-async def reveal_answer(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data["chat_id"]
-    st = GAMES.get(chat_id)
-    if not st: return
-    q = st.questions[st.q_index]
-    # Fastest 3
-    pairs=list(st.per_q_answers.get(st.q_index, {}).items())
-    fastest=sorted((p for p in pairs if p[1].is_correct), key=lambda x: x[1].elapsed)[:3]
-    lines=[fmt_correct(st.theme, q)]
-    if fastest:
-        s=style_from_theme(st.theme)
-        lines.append(f"\n{s['fast']} Fastest:")
-        for uid, rec in fastest:
-            name = st.players.get(uid, str(uid))
-            lines.append(f"{s['dot']} {name} — {rec.points} pts ({rec.elapsed:.2f}s)")
-    await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="Markdown")
+    # wait 20s, then next (NO per-question reveal)
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 async def next_question(context: ContextTypes.DEFAULT_TYPE):
@@ -190,7 +155,8 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     st.locked = False
     end_ts = st.q_start_ts + QUESTION_TIME
     context.job_queue.run_repeating(
-        tick_edit, interval=5.0, first=5.0, data={"chat_id": st.chat_id, "end_ts": end_ts},
+        tick_edit, interval=1.0, first=1.0,
+        data={"chat_id": st.chat_id, "end_ts": end_ts},
         name=f"tick:{st.chat_id}:{st.q_index}"
     )
     context.job_queue.run_once(
@@ -198,7 +164,7 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         name=f"close:{st.chat_id}:{st.q_index}"
     )
 
-# ---------- Admin helper ----------
+# ---------- Helpers ----------
 async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
     try:
         m = await context.bot.get_chat_member(chat_id, user_id)
@@ -206,19 +172,28 @@ async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: in
     except Exception:
         return False
 
+def compute_scores(st: GameState):
+    scores: Dict[int,int] = {}; corrects: Dict[int,int] = {}
+    for qidx in range(st.limit):
+        for uid, rec in st.per_q_answers.get(qidx, {}).items():
+            scores[uid] = scores.get(uid, 0) + rec.points
+            if rec.is_correct: corrects[uid] = corrects.get(uid, 0) + 1
+    return scores, corrects
+
 # ---------- Commands ----------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     theme = context.chat_data.get("theme", DEFAULT_THEME)
-    mode  = context.chat_data.get("mode")  # required before /startquiz
+    mode  = context.chat_data.get("mode")
     length= context.chat_data.get("length")
     s = style_from_theme(theme)
     await update.message.reply_text(
         f"{s['q']} *Quiz Bot*\n{s['rule']}\n"
-        f"1) /menu — pick *Mode* (Beginner/Standard/Expert) & *Length* (10/20/30/40/50) & Theme\n"
-        f"2) /startquiz — start after selecting mode (admin-only in groups)\n"
-        f"3) /stopquiz — end early\n"
-        f"4) /myresults — personal breakdown after\n"
-        f"5) /reset — clear previous session/config\n\n"
+        f"1) /menu — choose *Mode* (Beginner/Standard/Expert), *Length* (10–50), Theme\n"
+        f"2) /startquiz — start (admin-only in groups)\n"
+        f"3) /leaderboard — show ranks (current or last)\n"
+        f"4) /answer — reveal all correct answers (after quiz ends)\n"
+        f"5) /stopquiz — end early\n"
+        f"6) /reset — clear previous session & settings\n\n"
         f"Current: Mode={mode or '—'} • Length={length or '—'} • Theme={theme.title()}",
         parse_mode="Markdown"
     )
@@ -239,27 +214,27 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton(f"Theme: {theme.title()} (toggle)", callback_data="cfg:theme:toggle")],
     ]
     await update.message.reply_text(
-        f"*Setup Required*: choose a *Mode* and *Length*.\nCurrent → Mode: *{mode}*, Length: *{length}*, Theme: *{theme.title()}*",
+        f"*Setup Required*: Choose a *Mode* and *Length*.\nCurrent → Mode: *{mode}*, Length: *{length}*, Theme: *{theme.title()}*",
         reply_markup=InlineKeyboardMarkup(rows), parse_mode="Markdown"
     )
 
 async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
-    data = q.data  # cfg:mode:beginner | cfg:len:20 | cfg:theme:toggle
+    data = q.data
     if not data.startswith("cfg:"): return
     _, kind, val = data.split(":")
     chat_id = q.message.chat.id
 
-    # If a game exists, wipe it when settings change (auto "delete logs")
-    if chat_id in GAMES:
-        GAMES.pop(chat_id, None)
+    # Changing settings wipes old session/logs
+    GAMES.pop(chat_id, None)
+    LAST.pop(chat_id, None)
 
     if kind == "mode":
         if val not in MODES:
             await q.edit_message_text("Invalid mode."); return
         context.chat_data["mode"] = val
-        await q.edit_message_text(f"Mode set to *{val.title()}*. Use /menu to change other settings or /startquiz to begin.", parse_mode="Markdown")
+        await q.edit_message_text(f"Mode set to *{val.title()}*. Use /menu to adjust or /startquiz to begin.", parse_mode="Markdown")
         return
     if kind == "len":
         try:
@@ -280,7 +255,7 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
 
-    # admin-only for groups
+    # admin-only in groups
     if update.effective_chat.type != "private":
         if not await is_admin(context, chat_id, user.id):
             await update.message.reply_text("Only group admins can start a quiz.")
@@ -293,8 +268,9 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please run /menu and choose a *Mode* and *Length* first.", parse_mode="Markdown")
         return
 
-    # starting a new session clears any previous (auto 'delete logs')
+    # start new session—clear previous logs/snapshots
     GAMES.pop(chat_id, None)
+    LAST.pop(chat_id, None)
 
     all_qs = load_questions()
     pool = filter_by_mode(all_qs, mode)
@@ -308,7 +284,7 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🎯 *{mode.title()}* mode • {length} questions\n"
-        f"⏱ {QUESTION_TIME}s each, faster taps = more points.",
+        f"⏱ {QUESTION_TIME}s per question • Next question in {DELAY_NEXT}s after each.",
         parse_mode="Markdown"
     )
     await ask_question(context, st)
@@ -352,39 +328,60 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
-async def cmd_myresults(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user = update.effective_user
     st = GAMES.get(chat_id)
-    if not st or st.q_index < st.limit - 1:
-        await update.message.reply_text("No finished quiz found here yet."); return
+    theme = (st.theme if st else context.chat_data.get("theme", DEFAULT_THEME))
+    s = style_from_theme(theme)
 
-    total_pts = 0; correct_cnt = 0
-    lines = ["📊 *Your Results*"]
-    for i, q in enumerate(st.questions, start=1):
-        rec = st.per_q_answers.get(i-1, {}).get(user.id)
-        if not rec:
-            lines.append(f"Q{i}: No answer ❌ — 0 pts")
-        else:
-            total_pts += rec.points
-            if rec.is_correct: correct_cnt += 1
-            lines.append(f"Q{i}: {'Correct ✅' if rec.is_correct else 'Wrong ❌'} — {rec.points} pts")
-    lines.append(f"\nTotal: {correct_cnt}/{st.limit} correct — {total_pts} pts")
+    if st:
+        scores, corrects = compute_scores(st)
+        source = f"Current session — {st.q_index+1}/{st.limit} asked"
+    else:
+        snap = LAST.get(chat_id)
+        if not snap:
+            await update.message.reply_text("No session found here yet."); return
+        scores = snap["scores"]; corrects = snap["corrects"]
+        source = f"Last finished — {snap['limit']} questions"
+
+    if not scores:
+        await update.message.reply_text("No participants yet."); return
+
+    ranking = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    # map ids to names
+    name_of = (st.players if st else LAST.get(chat_id, {}).get("players", {}))
+    lines = [f"{s['flag']} *Leaderboard* ({source})"]
+    for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
+        name = name_of.get(uid, str(uid))
+        corr = corrects.get(uid, 0)
+        medal = "🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}."
+        lines.append(f"{medal} {name} — {corr} correct — {pts_} pts")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
-async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
-    s = style_from_theme(st.theme)
-    scores: Dict[int,int] = {}; corrects: Dict[int,int] = {}
-    for qidx in range(st.limit):
-        for uid, rec in st.per_q_answers.get(qidx, {}).items():
-            scores[uid] = scores.get(uid, 0) + rec.points
-            if rec.is_correct: corrects[uid] = corrects.get(uid, 0) + 1
+async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    snap = LAST.get(chat_id)
+    if not snap:
+        await update.message.reply_text("No finished quiz found here yet."); return
+    qs: List[QItem] = snap["questions"]
+    lines = ["📘 *All Correct Answers*"]
+    for i,q in enumerate(qs, start=1):
+        lines.append(f"Q{i}: *{chr(65+q.correct)}. {q.options[q.correct]}*")
+        # Telegram message length limit; chunk if long
+        if len("\n".join(lines)) > 3500:
+            await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+            lines = []
+    if lines:
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
+async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
+    scores, corrects = compute_scores(st)
     if not scores:
         await context.bot.send_message(chat_id=st.chat_id, text="Quiz ended. No participants 😅")
         GAMES.pop(st.chat_id, None); return
 
     ranking = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
     # Winner shoutout
     top_uid, top_pts = ranking[0]
     top_name = st.players.get(top_uid, str(top_uid))
@@ -394,50 +391,10 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         parse_mode="Markdown"
     )
 
+    # Final results (no per-question answers; use /answer)
+    s = style_from_theme(st.theme)
     lines=[f"{s['flag']} *Final Results* — Top 10"]
     for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
         name = st.players.get(uid, str(uid))
         corr = corrects.get(uid, 0)
-        medal = "🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}."
-        lines.append(f"{medal} {name} — {corr}/{st.limit} correct — {pts_} pts")
-    lines.append("\nUse /myresults to see your breakdown.")
-    await context.bot.send_message(chat_id=st.chat_id, text="\n".join(lines), parse_mode="Markdown")
-
-    GAMES.pop(st.chat_id, None)  # clear logs/state
-
-async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    # admin-only in groups
-    if update.effective_chat.type != "private":
-        if not await is_admin(context, chat_id, update.effective_user.id):
-            await update.message.reply_text("Only group admins can stop the quiz.")
-            return
-    st = GAMES.get(chat_id)
-    if not st:
-        await update.message.reply_text("No active quiz to stop."); return
-    st.limit = st.q_index + 1
-    await finish_quiz(context, st)
-
-async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    GAMES.pop(chat_id, None)
-    context.chat_data.clear()
-    await update.message.reply_text("✅ Reset done. Use /menu to set Mode & Length, then /startquiz.")
-
-def build_app() -> Application:
-    token = os.getenv("BOT_TOKEN")
-    if not token: raise RuntimeError("Set BOT_TOKEN environment variable.")
-    app = Application.builder().token(token).build()
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("menu",  cmd_menu))
-    app.add_handler(CallbackQueryHandler(cfg_click, pattern=r"^cfg:"))
-    app.add_handler(CommandHandler("startquiz", cmd_startquiz))
-    app.add_handler(CommandHandler("myresults", cmd_myresults))
-    app.add_handler(CommandHandler("stopquiz", cmd_stop))
-    app.add_handler(CommandHandler("reset", cmd_reset))
-    app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
-    return app
-
-if __name__ == "__main__":
-    print("Starting quiz bot…")
-    build_app().run_polling(close_loop=False)
+        medal = "🥇" if rank==1 else "🥈
