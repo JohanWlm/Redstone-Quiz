@@ -1,4 +1,4 @@
-# Telegram Quiz Bot — per-question recap, visible confirmations, 7.5s gap with countdown
+# Telegram Quiz Bot — confirmations, answer counter, 7.5s gap, per-question recap, smart /stopquiz
 # deps: python-telegram-bot[job-queue]==21.*
 
 from __future__ import annotations
@@ -11,14 +11,14 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 
 # ---------- CONFIG ----------
 QUESTION_TIME = 15            # seconds to answer
-DELAY_NEXT    = 7.5           # shortened gap between questions (with live countdown)
+DELAY_NEXT    = 7.5           # gap between questions (live countdown)
 POINTS_MAX    = 100           # max per-question points (faster = more)
 QUESTIONS_FILE = "questions.json"
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
 
-DM_CONFIRM = False            # set True to DM users "You chose ..." in groups (if they started the bot)
+DM_CONFIRM = False            # set True to DM users "You chose ..." in groups
 # ----------------------------
 
 @dataclass
@@ -49,8 +49,12 @@ class GameState:
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
     players: Dict[int, str] = field(default_factory=dict)
 
-GAMES: Dict[int, GameState] = {}  # active per chat
-LAST: Dict[int, dict] = {}        # last finished snapshot per chat (for /answer, /leaderboard)
+# Active game per chat
+GAMES: Dict[int, GameState] = {}
+# Last finished snapshot per chat (for /answer and /leaderboard)
+LAST: Dict[int, dict] = {}
+# Per-chat config (Mode/Length) stored outside chat_data so it never disappears
+SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
 # ---------- Helpers ----------
 def points(elapsed: float) -> int:
@@ -58,14 +62,17 @@ def points(elapsed: float) -> int:
     return int(round((max(0.0, QUESTION_TIME - elapsed)/QUESTION_TIME)*POINTS_MAX))
 
 def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
-    # Buttons show only the option text (no A/B/C/D)
+    # Buttons are just the option text (no A/B/C/D)
     return InlineKeyboardMarkup([[InlineKeyboardButton(opt, callback_data=f"ans:{qnum}:{i}")]
                                 for i,opt in enumerate(q.options)])
 
-def fmt_question(qnum: int, total: int, q: QItem, left: Optional[int]=None) -> str:
+def fmt_question(qnum: int, total: int, q: QItem,
+                 left: Optional[int]=None, locked_count: Optional[int]=None) -> str:
     head = f"❓ *Question {qnum}/{total}*\n{q.text}"
     if left is not None:
         head += f"\n\n⏱ *{int(left)}s left*"
+    if locked_count is not None:
+        head += f"\n🗳 *Answers locked:* {locked_count}"
     return head
 
 def load_questions() -> List[QItem]:
@@ -105,7 +112,7 @@ def compute_totals(st: GameState) -> Tuple[Dict[int,int], Dict[int,int]]:
 
 # ---------- Jobs / Flow ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
-    """Edit the question each second with the live numeric countdown."""
+    """Edit the question each second with the live numeric countdown + answer count."""
     data = context.job.data
     chat_id = data["chat_id"]; msg_id = data["msg_id"]; end_ts = data["end_ts"]; qidx = data["qidx"]
     st = GAMES.get(chat_id)
@@ -115,9 +122,10 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     if left <= 0:
         context.job.schedule_removal()
     try:
+        count = len(st.per_q_answers.get(st.q_index, {}))
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=msg_id,
-            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left),
+            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left, count),
             reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
             parse_mode="Markdown"
         )
@@ -187,11 +195,12 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     if not st: return
     st.locked = True
 
-    # Freeze question to 0s and remove buttons
+    # Freeze question to 0s (remove buttons) and show final count
     try:
+        count = len(st.per_q_answers.get(st.q_index, {}))
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
-            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0),
+            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0, count),
             reply_markup=None, parse_mode="Markdown"
         )
     except Exception:
@@ -200,7 +209,7 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     # Post per-round recap (correct answer + round scorers + current leaderboard)
     await post_round_recap(context, st, st.q_index)
 
-    # Show live "next question" countdown (7.5s)
+    # Live "next question" countdown
     gap_end = time.time() + DELAY_NEXT
     gap_msg = await context.bot.send_message(chat_id=chat_id, text=f"⏭️ Next question is coming in {int(math.ceil(DELAY_NEXT))}s…")
     context.job_queue.run_repeating(
@@ -208,8 +217,6 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         data={"chat_id": chat_id, "msg_id": gap_msg.message_id, "end_ts": gap_end},
         name=f"gap:{chat_id}:{st.q_index}"
     )
-
-    # Move on after the configured gap
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 async def next_question(context: ContextTypes.DEFAULT_TYPE):
@@ -225,7 +232,7 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     q = st.questions[st.q_index]
     msg = await context.bot.send_message(
         chat_id=st.chat_id,
-        text=fmt_question(st.q_index+1, st.limit, q, QUESTION_TIME),
+        text=fmt_question(st.q_index+1, st.limit, q, QUESTION_TIME, 0),
         reply_markup=answer_kb(q, st.q_index+1),
         parse_mode="Markdown"
     )
@@ -253,14 +260,15 @@ async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: in
 
 # ---------- Commands / Callbacks ----------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mode  = context.chat_data.get("mode")
-    length= context.chat_data.get("length")
+    cfg = SETTINGS.get(update.effective_chat.id, {})
+    mode   = cfg.get("mode")
+    length = cfg.get("length")
     await update.message.reply_text(
         "✨ *Quiz Bot*\n────────────\n"
         "Step 1: /menu — choose *Mode* (Beginner/Standard/Expert)\n"
         "Step 2: bot prompts you to choose *How many questions* (10–50)\n"
         "Then: /startquiz — start (admin-only in groups)\n\n"
-        "During play: Each round ends with the correct answer + current leaderboard.\n"
+        "During play: After each round, you’ll see the correct answer + current top-5.\n"
         "Tools: /leaderboard • /answer • /stopquiz • /reset\n\n"
         f"Current: Mode={mode or '—'} • Length={length or '—'}",
         parse_mode="Markdown"
@@ -305,7 +313,7 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if kind == "mode":
         if val not in MODES:
             await q.edit_message_text("Invalid mode."); return
-        context.chat_data["mode"] = val
+        SETTINGS.setdefault(chat_id, {})["mode"] = val
         try:
             await q.edit_message_text(f"Mode set to *{val.title()}* ✅", parse_mode="Markdown")
         except Exception:
@@ -319,7 +327,7 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if length not in ALLOWED_SESSION_SIZES: raise ValueError()
         except Exception:
             await q.edit_message_text("Invalid length."); return
-        context.chat_data["length"] = length
+        SETTINGS.setdefault(chat_id, {})["length"] = length
         await q.edit_message_text(f"Length set to *{length}* ✅\nUse /startquiz to begin.", parse_mode="Markdown")
         return
 
@@ -333,8 +341,9 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Only group admins can start a quiz.")
             return
 
-    mode = context.chat_data.get("mode")
-    length = context.chat_data.get("length")
+    cfg = SETTINGS.get(chat_id, {})
+    mode   = cfg.get("mode")
+    length = cfg.get("length")
     if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
         await update.message.reply_text("Please run /menu and complete *both steps* (Mode and Length) first.", parse_mode="Markdown")
         return
@@ -344,17 +353,17 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST.pop(chat_id, None)
 
     all_qs = load_questions()
-    pool = filter_by_mode(all_qs, mode)
-    if len(pool) < length:
+    pool = filter_by_mode(all_qs, str(mode))
+    if len(pool) < int(length):
         await update.message.reply_text(f"Not enough questions in *{mode}* (need {length}).")
         return
 
-    qs = shuffle_qs(pool)[:length]
-    st = GameState(chat_id=chat_id, started_by=user.id, questions=qs, limit=length, mode=mode)
+    qs = shuffle_qs(pool)[:int(length)]
+    st = GameState(chat_id=chat_id, started_by=user.id, questions=qs, limit=int(length), mode=str(mode))
     GAMES[chat_id] = st
 
     await update.message.reply_text(
-        f"🎯 *{mode.title()}* mode • {length} questions\n"
+        f"🎯 *{str(mode).title()}* mode • {length} questions\n"
         f"⏱ {QUESTION_TIME}s per question • Next question in {int(math.ceil(DELAY_NEXT))}s after each.",
         parse_mode="Markdown"
     )
@@ -382,6 +391,7 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception: pass
         return
 
+    # record player & first answer only
     st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
     st.per_q_answers.setdefault(st.q_index, {})
     if user.id in st.per_q_answers[st.q_index]:
@@ -394,18 +404,36 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pts = points(elapsed) if is_correct else 0
     st.per_q_answers[st.q_index][user.id] = AnswerRec(choice=opt, is_correct=is_correct, elapsed=elapsed, points=pts)
 
-    # Visible confirmation: popup + (optional) DM in groups
     chosen_txt = st.questions[st.q_index].options[opt]
+    # Big visible confirmation (modal)
     try:
-        await q.answer(f"{'✅' if is_correct else '❌'} You chose: {chosen_txt}  ({pts} pts if correct)", show_alert=False)
+        await q.answer(
+            f"You chose:\n\n{chosen_txt}\n\n"
+            f"{'✅ Correct' if is_correct else '❌ Locked in'} • {pts} pts",
+            show_alert=True
+        )
     except Exception:
         pass
+
+    # Update the "answers locked" counter immediately
+    try:
+        count = len(st.per_q_answers.get(st.q_index, {}))
+        left  = max(0, int(math.ceil(st.q_start_ts + QUESTION_TIME - time.time())))
+        await context.bot.edit_message_text(
+            chat_id=chat_id, message_id=st.q_msg_id,
+            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left, count),
+            reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+    # Optional DM receipt
     if DM_CONFIRM and update.effective_chat.type != "private":
         try:
-            await context.bot.send_message(chat_id=user.id, text=f"🔒 Locked in Q{st.q_index+1}: {chosen_txt}")
+            await context.bot.send_message(chat_id=user.id, text=f"🔒 You answered Q{st.q_index+1}: {chosen_txt}")
         except Exception:
-            # user hasn't started the bot in DM; ignore
-            pass
+            pass  # user hasn't opened DM with the bot
 
 async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -445,6 +473,7 @@ async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = ["📘 *All Correct Answers*"]
     for i,q in enumerate(qs, start=1):
         lines.append(f"Q{i}: *{q.options[q.correct]}*")
+        # chunk if too long for Telegram
         if len("\n".join(lines)) > 3500:
             await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
             lines = []
@@ -492,28 +521,50 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     GAMES.pop(st.chat_id, None)
 
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    # admin-only in groups
-    if update.effective_chat.type != "private":
-        if not await is_admin(context, chat_id, update.effective_user.id):
-            await update.message.reply_text("Only group admins can stop the quiz.")
-            return
-    st = GAMES.get(chat_id)
+    user = update.effective_user
+    here_id = update.effective_chat.id
+
+    st = GAMES.get(here_id)
+
+    # If no game in this chat, try to find one this user can legitimately stop
     if not st:
-        await update.message.reply_text("No active quiz to stop."); return
-    st.limit = st.q_index + 1
+        for g in list(GAMES.values()):
+            # Allow the starter to stop from anywhere
+            if g.started_by == user.id:
+                st = g
+                break
+            # Or allow group admins of that chat to stop it
+            try:
+                member = await context.bot.get_chat_member(g.chat_id, user.id)
+                if member.status in ("administrator", "creator"):
+                    st = g
+                    break
+            except Exception:
+                continue
+
+        if not st:
+            await update.message.reply_text("No active quiz to stop.")
+            return
+
+    # Finish and clear
+    st.limit = st.q_index + 1  # truncate to “now”
+    await update.message.reply_text("Stopping quiz…")
     await finish_quiz(context, st)
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     st = GAMES.pop(chat_id, None)
     LAST.pop(chat_id, None)
-    context.chat_data.clear()
+    SETTINGS.pop(chat_id, None)
     await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
 
 def build_app() -> Application:
-    token = os.getenv("BOT_TOKEN")
-    if not token: raise RuntimeError("Set BOT_TOKEN environment variable.")
+    token = (
+        os.getenv("BOT_TOKEN")
+        or os.getenv("TELEGRAM_BOT_TOKEN")
+        or os.getenv("TELEGRAM_TOKEN")
+    )
+    if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("menu",        cmd_menu))
