@@ -1,18 +1,18 @@
-# Telegram Quiz Bot — confirmations, answer counter, 7.5s gap, per-question recap, smart /stopquiz
+# Telegram Quiz Bot — confirmations, one-answer-per-user, 10s/5s timers, per-question recap, smart /stopquiz
 # deps: python-telegram-bot[job-queue]==21.*
 
 from __future__ import annotations
 import os, json, time, random, math
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Set
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ---------- CONFIG ----------
-QUESTION_TIME = 15            # seconds to answer
-DELAY_NEXT    = 7.5           # gap between questions (live countdown)
-POINTS_MAX    = 100           # max per-question points (faster = more)
+QUESTION_TIME = 10            # seconds to answer
+DELAY_NEXT    = 5             # gap between questions (live countdown)
+POINTS_MAX    = 100           # max points per correct (faster = more)
 QUESTIONS_FILE = "questions.json"
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
@@ -42,12 +42,15 @@ class GameState:
     questions: List[QItem]
     limit: int
     mode: str
+
     q_index: int = 0
     q_msg_id: Optional[int] = None
     q_start_ts: Optional[float] = None
     locked: bool = False
-    per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
-    players: Dict[int, str] = field(default_factory=dict)
+
+    per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)   # qidx -> {user_id: AnswerRec}
+    players: Dict[int, str] = field(default_factory=dict)                           # user_id -> display name
+    answered_now: Dict[int, Set[int]] = field(default_factory=dict)                 # qidx -> set(user_id) to prevent race double taps
 
 # Active game per chat
 GAMES: Dict[int, GameState] = {}
@@ -58,16 +61,19 @@ SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
 # ---------- Helpers ----------
 def points(elapsed: float) -> int:
-    if elapsed >= QUESTION_TIME: return 0
-    return int(round((max(0.0, QUESTION_TIME - elapsed)/QUESTION_TIME)*POINTS_MAX))
+    if elapsed >= QUESTION_TIME:
+        return 0
+    return int(round((max(0.0, QUESTION_TIME - elapsed) / QUESTION_TIME) * POINTS_MAX))
 
 def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
     # Buttons are just the option text (no A/B/C/D)
-    return InlineKeyboardMarkup([[InlineKeyboardButton(opt, callback_data=f"ans:{qnum}:{i}")]
-                                for i,opt in enumerate(q.options)])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(opt, callback_data=f"ans:{qnum}:{i}")]
+        for i, opt in enumerate(q.options)
+    ])
 
 def fmt_question(qnum: int, total: int, q: QItem,
-                 left: Optional[int]=None, locked_count: Optional[int]=None) -> str:
+                 left: Optional[int] = None, locked_count: Optional[int] = None) -> str:
     head = f"❓ *Question {qnum}/{total}*\n{q.text}"
     if left is not None:
         head += f"\n\n⏱ *{int(left)}s left*"
@@ -78,37 +84,54 @@ def fmt_question(qnum: int, total: int, q: QItem,
 def load_questions() -> List[QItem]:
     with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
-    out=[]
-    for i,q in enumerate(data, start=1):
-        if not all(k in q for k in ("text","options","correct","mode")):
+    out = []
+    for i, q in enumerate(data, start=1):
+        if not all(k in q for k in ("text", "options", "correct", "mode")):
             raise ValueError(f"Q{i} missing fields")
-        if q["mode"] not in MODES: raise ValueError(f"Q{i} invalid mode {q['mode']}")
-        if len(q["options"])!=4: raise ValueError(f"Q{i} must have 4 options")
-        c=int(q["correct"])
-        if not 0<=c<4: raise ValueError(f"Q{i} invalid correct index {c}")
+        if q["mode"] not in MODES:
+            raise ValueError(f"Q{i} invalid mode {q['mode']}")
+        if len(q["options"]) != 4:
+            raise ValueError(f"Q{i} must have 4 options")
+        c = int(q["correct"])
+        if not 0 <= c < 4:
+            raise ValueError(f"Q{i} invalid correct index {c}")
         out.append(QItem(text=q["text"], options=list(q["options"]), correct=c, mode=q["mode"]))
     return out
 
 def filter_by_mode(all_qs: List[QItem], mode: str) -> List[QItem]:
-    return [q for q in all_qs if q.mode==mode]
+    return [q for q in all_qs if q.mode == mode]
 
 def shuffle_qs(qs: List[QItem]) -> List[QItem]:
-    qs = qs.copy(); random.shuffle(qs)
-    out=[]
+    qs = qs.copy()
+    random.shuffle(qs)
+    out: List[QItem] = []
     for q in qs:
-        pairs=list(enumerate(q.options)); random.shuffle(pairs)
-        new_opts=[t for _,t in pairs]
-        new_correct=next(i for i,(orig,_) in enumerate(pairs) if orig==q.correct)
+        pairs = list(enumerate(q.options))
+        random.shuffle(pairs)
+        new_opts = [t for _, t in pairs]
+        new_correct = next(i for i, (orig, _) in enumerate(pairs) if orig == q.correct)
         out.append(QItem(text=q.text, options=new_opts, correct=new_correct, mode=q.mode))
     return out
 
-def compute_totals(st: GameState) -> Tuple[Dict[int,int], Dict[int,int]]:
-    scores: Dict[int,int] = {}; corrects: Dict[int,int] = {}
+def compute_totals(st: GameState) -> Tuple[Dict[int, int], Dict[int, int]]:
+    scores: Dict[int, int] = {}
+    corrects: Dict[int, int] = {}
     for qidx in range(st.limit):
         for uid, rec in st.per_q_answers.get(qidx, {}).items():
             scores[uid] = scores.get(uid, 0) + rec.points
-            if rec.is_correct: corrects[uid] = corrects.get(uid, 0) + 1
+            if rec.is_correct:
+                corrects[uid] = corrects.get(uid, 0) + 1
     return scores, corrects
+
+def cancel_jobs_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
+    """Cancel any tick/close/gap jobs for this chat to avoid stray edits."""
+    try:
+        for job in context.job_queue.jobs():
+            name = getattr(job, "name", "") or ""
+            if name.startswith(f"tick:{chat_id}:") or name.startswith(f"close:{chat_id}:") or name.startswith(f"gap:{chat_id}:"):
+                job.schedule_removal()
+    except Exception:
+        pass
 
 # ---------- Jobs / Flow ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
@@ -125,8 +148,8 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
         count = len(st.per_q_answers.get(st.q_index, {}))
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=msg_id,
-            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left, count),
-            reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
+            text=fmt_question(st.q_index + 1, st.limit, st.questions[st.q_index], left, count),
+            reply_markup=answer_kb(st.questions[st.q_index], st.q_index + 1),
             parse_mode="Markdown"
         )
     except Exception:
@@ -159,7 +182,7 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
     """After time ends: show correct answer, round scorers, and current leaderboard (Top 5)."""
     q = st.questions[qidx]
     per = st.per_q_answers.get(qidx, {})
-    # round scorers (correct only), fastest first (higher points first)
+    # correct answers only, highest points first
     scorers = [(uid, rec.points) for uid, rec in per.items() if rec.is_correct]
     scorers.sort(key=lambda t: t[1], reverse=True)
 
@@ -173,7 +196,7 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
         names = []
         for uid, pts in scorers[:5]:
             names.append(f"{st.players.get(uid, str(uid))} (+{pts})")
-        others = max(0, len(scorers)-5)
+        others = max(0, len(scorers) - 5)
         lines.append("🏎️ Fastest correct: " + ", ".join(names) + (f" … +{others} more" if others else ""))
     else:
         lines.append("😶 No correct answers this round.")
@@ -189,7 +212,7 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
     await context.bot.send_message(chat_id=st.chat_id, text="\n".join(lines), parse_mode="Markdown")
 
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
-    """Close the question, post recap, and start a 7.5s live countdown to the next question."""
+    """Close the question, post recap, and start a 5s live countdown to the next question."""
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
     if not st: return
@@ -200,13 +223,13 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         count = len(st.per_q_answers.get(st.q_index, {}))
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
-            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0, count),
+            text=fmt_question(st.q_index + 1, st.limit, st.questions[st.q_index], 0, count),
             reply_markup=None, parse_mode="Markdown"
         )
     except Exception:
         pass
 
-    # Post per-round recap (correct answer + round scorers + current leaderboard)
+    # Per-round recap
     await post_round_recap(context, st, st.q_index)
 
     # Live "next question" countdown
@@ -232,13 +255,14 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     q = st.questions[st.q_index]
     msg = await context.bot.send_message(
         chat_id=st.chat_id,
-        text=fmt_question(st.q_index+1, st.limit, q, QUESTION_TIME, 0),
-        reply_markup=answer_kb(q, st.q_index+1),
+        text=fmt_question(st.q_index + 1, st.limit, q, QUESTION_TIME, 0),
+        reply_markup=answer_kb(q, st.q_index + 1),
         parse_mode="Markdown"
     )
     st.q_msg_id = msg.message_id
     st.q_start_ts = time.time()
     st.locked = False
+    st.answered_now[st.q_index] = set()   # reset per-question answered set
     end_ts = st.q_start_ts + QUESTION_TIME
     context.job_queue.run_repeating(
         tick_edit, interval=1.0, first=1.0,
@@ -261,8 +285,7 @@ async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: in
 # ---------- Commands / Callbacks ----------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cfg = SETTINGS.get(update.effective_chat.id, {})
-    mode   = cfg.get("mode")
-    length = cfg.get("length")
+    mode = cfg.get("mode"); length = cfg.get("length")
     await update.message.reply_text(
         "✨ *Quiz Bot*\n────────────\n"
         "Step 1: /menu — choose *Mode* (Beginner/Standard/Expert)\n"
@@ -342,8 +365,7 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     cfg = SETTINGS.get(chat_id, {})
-    mode   = cfg.get("mode")
-    length = cfg.get("length")
+    mode = cfg.get("mode"); length = cfg.get("length")
     if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
         await update.message.reply_text("Please run /menu and complete *both steps* (Mode and Length) first.", parse_mode="Markdown")
         return
@@ -358,7 +380,7 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Not enough questions in *{mode}* (need {length}).")
         return
 
-    qs = shuffle_qs(pool)[:int(length)]
+    qs = shuffle_qs(pool)[: int(length)]
     st = GameState(chat_id=chat_id, started_by=user.id, questions=qs, limit=int(length), mode=str(mode))
     GAMES[chat_id] = st
 
@@ -371,7 +393,6 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
     user = q.from_user
     chat_id = q.message.chat.id
     try:
@@ -381,7 +402,10 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     st = GAMES.get(chat_id)
-    if not st: return
+    if not st: 
+        try: await q.answer("No active quiz here.", show_alert=False)
+        except Exception: pass
+        return
     if st.q_index + 1 != qnum:
         try: await q.answer("This question is already closed.", show_alert=False)
         except Exception: pass
@@ -391,7 +415,15 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception: pass
         return
 
-    # record player & first answer only
+    # ---- One answer per user (race-proof) ----
+    st.answered_now.setdefault(st.q_index, set())
+    if user.id in st.answered_now[st.q_index]:
+        try: await q.answer("Only your first answer counts.", show_alert=False)
+        except Exception: pass
+        return
+    # Mark immediately to prevent two rapid taps racing
+    st.answered_now[st.q_index].add(user.id)
+
     st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
     st.per_q_answers.setdefault(st.q_index, {})
     if user.id in st.per_q_answers[st.q_index]:
@@ -415,14 +447,14 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
-    # Update the "answers locked" counter immediately
+    # Update the "answers locked" counter immediately for everyone
     try:
         count = len(st.per_q_answers.get(st.q_index, {}))
-        left  = max(0, int(math.ceil(st.q_start_ts + QUESTION_TIME - time.time())))
+        left = max(0, int(math.ceil(st.q_start_ts + QUESTION_TIME - time.time())))
         await context.bot.edit_message_text(
             chat_id=chat_id, message_id=st.q_msg_id,
-            text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left, count),
-            reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
+            text=fmt_question(st.q_index + 1, st.limit, st.questions[st.q_index], left, count),
+            reply_markup=answer_kb(st.questions[st.q_index], st.q_index + 1),
             parse_mode="Markdown"
         )
     except Exception:
@@ -456,7 +488,7 @@ async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ranking = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     lines = [f"🏁 *Leaderboard* ({source})"]
-    for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
+    for rank, (uid, pts_) in enumerate(ranking[:10], start=1):
         name = name_of.get(uid, str(uid))
         corr = corrects.get(uid, 0)
         medal = ("🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}.")
@@ -471,16 +503,17 @@ async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No finished quiz found here yet."); return
     qs: List[QItem] = snap["questions"]
     lines = ["📘 *All Correct Answers*"]
-    for i,q in enumerate(qs, start=1):
+    for i, q in enumerate(qs, start=1):
         lines.append(f"Q{i}: *{q.options[q.correct]}*")
-        # chunk if too long for Telegram
-        if len("\n".join(lines)) > 3500:
+        if len("\n".join(lines)) > 3500:  # Telegram limit guard
             await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
             lines = []
     if lines:
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
+    cancel_jobs_for_chat(context, st.chat_id)  # stop any pending edits/countdowns
+
     scores, corrects = compute_totals(st)
     if not scores:
         await context.bot.send_message(chat_id=st.chat_id, text="Quiz ended. No participants 😅")
@@ -498,8 +531,8 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     )
 
     # Final results
-    lines=["🏁 *Final Results* — Top 10"]
-    for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
+    lines = ["🏁 *Final Results* — Top 10"]
+    for rank, (uid, pts_) in enumerate(ranking[:10], start=1):
         name = st.players.get(uid, str(uid))
         corr = corrects.get(uid, 0)
         medal = ("🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}.")
@@ -549,6 +582,7 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Finish and clear
     st.limit = st.q_index + 1  # truncate to “now”
     await update.message.reply_text("Stopping quiz…")
+    cancel_jobs_for_chat(context, st.chat_id)
     await finish_quiz(context, st)
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -556,6 +590,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     st = GAMES.pop(chat_id, None)
     LAST.pop(chat_id, None)
     SETTINGS.pop(chat_id, None)
+    cancel_jobs_for_chat(context, chat_id)
     await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
 
 def build_app() -> Application:
@@ -564,7 +599,8 @@ def build_app() -> Application:
         or os.getenv("TELEGRAM_BOT_TOKEN")
         or os.getenv("TELEGRAM_TOKEN")
     )
-    if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
+    if not token:
+        raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("menu",        cmd_menu))
