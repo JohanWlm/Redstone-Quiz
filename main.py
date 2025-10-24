@@ -31,6 +31,8 @@ QUESTIONS_FILE = "questions.json"
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
 
+ADMINS_ONLY = True  # require group admins for all control actions in groups
+
 # set True to DM users "You chose ..." in groups
 DM_CONFIRM = False
 
@@ -294,12 +296,24 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # In groups, only admins can open the menu
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            await update.message.reply_text(
+                "Only group admins can configure the quiz here. "
+                "DM me /menu if you want to preview it."
+            )
+            return
+
     rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
              InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
              InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
-    await update.message.reply_text("<b>Step 1/2</b>: Choose a <b>Mode</b>.",
-                                    reply_markup=InlineKeyboardMarkup(rows),
-                                    parse_mode=ParseMode.HTML)
+    await update.message.reply_text(
+        "<b>Step 1/2</b>: Choose a <b>Mode</b>.",
+        reply_markup=InlineKeyboardMarkup(rows),
+        parse_mode=ParseMode.HTML
+    )
+
 
 async def _send_length_menu(update_or_query, context):
     rows = [[InlineKeyboardButton("10", callback_data="cfg:len:10"),
@@ -317,10 +331,24 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     data = q.data
-    if not data.startswith("cfg:"): return
-    _, kind, val = data.split(":")
+    if not data.startswith("cfg:"):
+        return
+
     chat_id = q.message.chat.id
 
+    # Only admins can change settings in group chats
+    if q.message.chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, chat_id, q.from_user.id):
+            # Show a small modal to the tapper, but don't spam the chat
+            try:
+                await q.answer("Only group admins can change quiz settings here.", show_alert=True)
+            except Exception:
+                pass
+            return
+
+    _, kind, val = data.split(":")
+
+    # Changing settings wipes old session/logs
     GAMES.pop(chat_id, None)
     LAST.pop(chat_id, None)
 
@@ -338,12 +366,15 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if kind == "len":
         try:
             length = int(val)
-            if length not in ALLOWED_SESSION_SIZES: raise ValueError()
+            if length not in ALLOWED_SESSION_SIZES:
+                raise ValueError()
         except Exception:
             await q.edit_message_text("Invalid length."); return
         SETTINGS.setdefault(chat_id, {})["length"] = length
-        await q.edit_message_text(f"Length set to <b>{length}</b> ✅\nUse /startquiz to begin.", parse_mode=ParseMode.HTML)
-        return
+        await q.edit_message_text(
+            f"Length set to <b>{length}</b> ✅\nUse /startquiz to begin.",
+            parse_mode=ParseMode.HTML
+        )
 
 async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -533,6 +564,13 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+
+    # In groups, admin only
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, chat_id, update.effective_user.id):
+            await update.message.reply_text("Only group admins can reset this chat.")
+            return
+
     GAMES.pop(chat_id, None)
     LAST.pop(chat_id, None)
     SETTINGS.pop(chat_id, None)
