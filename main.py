@@ -19,9 +19,9 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(m
 log = logging.getLogger("quizbot")
 
 # ---------- FIXED SETTINGS ----------
-QUESTION_TIME = 10           # seconds to answer
+QUESTION_TIME = 10           # seconds per question
 DELAY_NEXT    = 5            # seconds between questions
-TICK_SECONDS  = 1.0          # update the countdown once per second
+TICK_SECONDS  = 1.0          # countdown update interval (seconds)
 POINTS_MAX    = 100
 QUESTIONS_FILE = "questions.json"
 
@@ -29,7 +29,7 @@ ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
 ADMINS_ONLY = True           # only admins can /menu, /startquiz, /stop, /reset in groups
 
-# Build/instance info (handy for debugging)
+# Build/instance info (handy for debugging and multi-replica checks)
 BUILD_ID = os.getenv("BUILD_ID", "dev")
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 
@@ -64,6 +64,15 @@ async def _tg(desc: str, coro, *args, **kwargs):
             log.error("%s: unexpected %s: %s", desc, type(e).__name__, e)
             return None
 
+# ---------- FIRE & FORGET ----------
+def fire_and_forget(coro):
+    async def _run():
+        try:
+            await coro
+        except Exception:
+            pass
+    asyncio.create_task(_run())
+
 # ---------- DATA ----------
 @dataclass
 class QItem:
@@ -92,11 +101,9 @@ class GameState:
     q_start_ts: Optional[float] = None
     locked: bool = False
 
-    # per-question answers only for current question
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
     answered_now: Dict[int, Set[int]] = field(default_factory=dict)
 
-    # persistent aggregates
     players: Dict[int, str] = field(default_factory=dict)
     totals: Dict[int, int] = field(default_factory=dict)
     corrects: Dict[int, int] = field(default_factory=dict)
@@ -166,33 +173,36 @@ def cancel_jobs_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
 # ---------- JOBS ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id=d["chat_id"]; msg_id=d["msg_id"]; end_ts=d["end_ts"]; qidx=d["qidx"]
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]; qidx = d["qidx"]
     st = GAMES.get(chat_id)
     if not st or st.q_index != qidx:
         context.job.schedule_removal(); return
     left = max(0, int(math.ceil(end_ts - time.time())))
     if left <= 0:
-        context.job.schedule_removal()
-        return
-    await _tg("tick.edit", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
-              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left,
-                                len(st.per_q_answers.get(st.q_index,{}))),
-              reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
-              parse_mode=ParseMode.HTML)
+        context.job.schedule_removal(); return
+    # Edit text only (leave keyboard unchanged) to reduce payload
+    fire_and_forget(_tg("tick.edit", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=msg_id,
+        text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left,
+                          len(st.per_q_answers.get(st.q_index, {}))),
+        parse_mode=ParseMode.HTML
+    ))
 
 async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id=d["chat_id"]; msg_id=d["msg_id"]; end_ts=d["end_ts"]
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]
     st = GAMES.get(chat_id)
     if not st: context.job.schedule_removal(); return
     left = max(0, int(math.ceil(end_ts - time.time())))
     if left <= 0:
         context.job.schedule_removal()
-        await _tg("gap.final", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
-                  text="🚀 Starting next question…")
+        fire_and_forget(_tg("gap.final", context.bot.edit_message_text,
+            chat_id=chat_id, message_id=msg_id, text="🚀 Starting next question…"
+        ))
         return
-    await _tg("gap.tick", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
-              text=f"⏭️ Next question in {left}s…")
+    fire_and_forget(_tg("gap.tick", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=msg_id, text=f"⏭️ Next question in {left}s…"
+    ))
 
 async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qidx: int):
     q = st.questions[qidx]
@@ -227,30 +237,37 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     if not st: return
     st.locked = True
 
-    # freeze the message
-    await _tg("close.freeze", context.bot.edit_message_text, chat_id=chat_id, message_id=st.q_msg_id,
-              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
-                                len(st.per_q_answers.get(st.q_index,{}))),
-              reply_markup=None, parse_mode=ParseMode.HTML)
+    # Freeze question message (non-blocking)
+    fire_and_forget(_tg("close.freeze", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=st.q_msg_id,
+        text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
+                          len(st.per_q_answers.get(st.q_index, {}))),
+        reply_markup=None, parse_mode=ParseMode.HTML
+    ))
 
-    await post_round_recap(context, st, st.q_index)
+    # Recap (non-blocking)
+    fire_and_forget(post_round_recap(context, st, st.q_index))
 
-    # free memory for this question
+    # Free memory for this question immediately
     st.per_q_answers.pop(st.q_index, None)
     st.answered_now.pop(st.q_index, None)
 
-    # small gap with ticking message, then next question
+    # Gap + next question: schedule next step NOW so timeline never stalls
     gap_end = time.time() + DELAY_NEXT
-    m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id,
-                  text=f"⏭️ Next question in {int(math.ceil(DELAY_NEXT))}s…")
-    if m and getattr(m, "message_id", None):
-        context.job_queue.run_repeating(
-            gap_tick,
-            interval=max(1.0, TICK_SECONDS),
-            first=max(1.0, TICK_SECONDS),
-            data={"chat_id": chat_id, "msg_id": m.message_id, "end_ts": gap_end},
-            name=f"gap:{chat_id}:{st.q_index}",
-        )
+
+    async def _gap_bundle():
+        m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id,
+                      text=f"⏭️ Next question in {int(math.ceil(DELAY_NEXT))}s…")
+        if m and getattr(m, "message_id", None):
+            context.job_queue.run_repeating(
+                gap_tick,
+                interval=max(1.0, TICK_SECONDS),
+                first=max(1.0, TICK_SECONDS),
+                data={"chat_id": chat_id, "msg_id": m.message_id, "end_ts": gap_end},
+                name=f"gap:{chat_id}:{st.q_index}",
+            )
+    fire_and_forget(_gap_bundle())
+
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 async def next_question(context: ContextTypes.DEFAULT_TYPE):
@@ -317,15 +334,16 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping • /version",
+        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping",
         parse_mode=ParseMode.HTML
     )
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Anyone can ping in DM; admins only in groups
+    if update.effective_chat.type != "private":
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            return
     await update.message.reply_text(f"pong from {INSTANCE_ID}")
-
-async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"version: {BUILD_ID} • instance: {INSTANCE_ID}")
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private" and ADMINS_ONLY:
@@ -435,37 +453,33 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception: return
     st=GAMES.get(chat_id)
     if not st:
-        try: await q.answer("No active quiz here.", show_alert=False)
-        except: pass
-        return
+        fire_and_forget(q.answer("No active quiz here.", show_alert=False)); return
     if st.q_index+1!=qnum:
-        try: await q.answer("This question is already closed.", show_alert=False)
-        except: pass
-        return
+        fire_and_forget(q.answer("This question is already closed.", show_alert=False)); return
     if st.locked or st.q_start_ts is None:
-        try: await q.answer("Time is up!", show_alert=False)
-        except: pass
-        return
+        fire_and_forget(q.answer("Time is up!", show_alert=False)); return
+
     st.answered_now.setdefault(st.q_index,set())
     if user.id in st.answered_now[st.q_index]:
-        try: await q.answer("Only your first answer counts.", show_alert=False)
-        except: pass
-        return
+        fire_and_forget(q.answer("Only your first answer counts.", show_alert=False)); return
     st.answered_now[st.q_index].add(user.id)
+
     st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
     st.per_q_answers.setdefault(st.q_index,{})
     if user.id in st.per_q_answers[st.q_index]:
-        try: await q.answer("Only your first answer counts.", show_alert=False)
-        except: pass
-        return
+        fire_and_forget(q.answer("Only your first answer counts.", show_alert=False)); return
+
     elapsed=max(0.0, time.time()-st.q_start_ts); is_correct=(opt==st.questions[st.q_index].correct)
     pts=points(elapsed) if is_correct else 0
     st.per_q_answers[st.q_index][user.id]=AnswerRec(opt,is_correct,elapsed,pts)
     if is_correct: st.corrects[user.id]=st.corrects.get(user.id,0)+1
     st.totals[user.id]=st.totals.get(user.id,0)+pts
-    try:
-        await q.answer(f"You chose: {st.questions[st.q_index].options[opt]}\n"+("✅ Correct" if is_correct else "❌ Locked"), show_alert=False)
-    except: pass
+
+    fire_and_forget(q.answer(
+        f"You chose: {st.questions[st.q_index].options[opt]}\n" +
+        ("✅ Correct" if is_correct else "❌ Locked"),
+        show_alert=False
+    ))
 
 async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id; st=GAMES.get(chat_id)
@@ -516,7 +530,8 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user=update.effective_user; here_id=update.effective_chat.id
     if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, here_id, user.id): await update.message.reply_text("Only group admins can stop the quiz here."); return
+        if not await is_admin(context, here_id, user.id):
+            await update.message.reply_text("Only group admins can stop the quiz here."); return
     st=GAMES.get(here_id)
     if not st:
         await update.message.reply_text("No active quiz to stop."); return
@@ -526,11 +541,12 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id
     if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, chat_id, update.effective_user.id): await update.message.reply_text("Only group admins can reset this chat."); return
+        if not await is_admin(context, chat_id, update.effective_user.id):
+            await update.message.reply_text("Only group admins can reset this chat."); return
     GAMES.pop(chat_id, None); LAST.pop(chat_id, None); SETTINGS.pop(chat_id, None); cancel_jobs_for_chat(context, chat_id)
     await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
 
-# Unknown commands fall back to help (prevents “confused” feeling in groups)
+# Unknown commands fall back to help (prevents confusion in groups)
 async def on_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text and update.message.text.startswith("/"):
         await update.message.reply_text("Unknown command. Try /help")
@@ -586,7 +602,6 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("cancel",      cmd_stop))
     app.add_handler(CommandHandler("reset",       cmd_reset))
     app.add_handler(CommandHandler("ping",        cmd_ping))
-    app.add_handler(CommandHandler("version",     cmd_version))
     app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
     app.add_handler(MessageHandler(filters.COMMAND, on_unknown))
     app.add_error_handler(on_error)
