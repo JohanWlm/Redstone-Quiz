@@ -1,4 +1,4 @@
-# Minimal Telegram Quiz Bot – stable, low-traffic, admin-only
+# Minimal Telegram Quiz Bot – stable, admin-only, with webhook cleanup
 from __future__ import annotations
 import os, json, time, random, html, logging, threading, uuid, asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -10,13 +10,11 @@ from telegram.constants import ParseMode
 from telegram.error import RetryAfter, TimedOut, NetworkError, BadRequest
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# ---------- Logging ----------
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger("quiz-min")
 
-# ---------- Config ----------
-QUESTION_TIME = int(os.getenv("QUESTION_TIME", "10"))    # seconds
-DELAY_NEXT    = int(os.getenv("DELAY_NEXT", "0"))        # seconds (keep 0 for speed)
+QUESTION_TIME = int(os.getenv("QUESTION_TIME", "10"))
+DELAY_NEXT    = int(os.getenv("DELAY_NEXT", "0"))
 QUESTIONS_FILE = os.getenv("QUESTIONS_FILE", "questions.json")
 
 MODES = ("beginner", "standard", "expert")
@@ -27,9 +25,7 @@ INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 def esc(s: str) -> str:
     return html.escape(str(s), quote=True)
 
-# ---------- Safe Telegram call ----------
 async def tg(desc: str, coro, *args, **kwargs):
-    """Retry a few times on common transient errors; otherwise swallow & continue."""
     for attempt in range(1, 4):
         try:
             return await coro(*args, **kwargs)
@@ -47,7 +43,6 @@ async def tg(desc: str, coro, *args, **kwargs):
             log.error("%s: unexpected %s: %s", desc, type(e).__name__, e); return None
     return None
 
-# ---------- Data ----------
 @dataclass
 class QItem:
     text: str
@@ -62,21 +57,18 @@ class GameState:
     questions: List[QItem]
     limit: int
     mode: str
-
     q_index: int = 0
     q_msg_id: Optional[int] = None
     q_start_ts: Optional[float] = None
     locked: bool = False
-
     players: Dict[int, str] = field(default_factory=dict)
-    totals: Dict[int, int] = field(default_factory=dict)      # simple +1 per correct
-    per_q_answers: Dict[int, Dict[int, int]] = field(default_factory=dict)  # uid -> option
-    answered_now: Dict[int, Set[int]] = field(default_factory=dict)         # uid set
+    totals: Dict[int, int] = field(default_factory=dict)      # +1 per correct
+    per_q_answers: Dict[int, Dict[int, int]] = field(default_factory=dict)
+    answered_now: Dict[int, Set[int]] = field(default_factory=dict)
 
 GAMES: Dict[int, GameState] = {}
 SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
-# ---------- Load questions ----------
 def load_questions() -> List[QItem]:
     with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -84,13 +76,10 @@ def load_questions() -> List[QItem]:
     for i, q in enumerate(data, start=1):
         if not all(k in q for k in ("text","options","correct","mode")):
             raise ValueError(f"Question {i} missing fields")
-        if q["mode"] not in MODES:
-            raise ValueError(f"Question {i} invalid mode {q['mode']}")
-        if len(q["options"]) != 4:
-            raise ValueError(f"Question {i} must have exactly 4 options")
+        if q["mode"] not in MODES: raise ValueError(f"Question {i} invalid mode {q['mode']}")
+        if len(q["options"]) != 4: raise ValueError(f"Question {i} must have 4 options")
         c = int(q["correct"])
-        if not 0 <= c < 4:
-            raise ValueError(f"Question {i} invalid correct index {c}")
+        if not 0 <= c < 4: raise ValueError(f"Question {i} invalid correct index {c}")
         out.append(QItem(q["text"], list(q["options"]), c, q["mode"]))
     return out
 
@@ -112,21 +101,14 @@ def kb_answers(q: QItem, qnum: int) -> InlineKeyboardMarkup:
 def fmt_q(qnum: int, total: int, q: QItem) -> str:
     return f"❓ <b>Question {qnum}/{total}</b>\n{esc(q.text)}\n\n⏱ <b>{QUESTION_TIME}s</b> to answer"
 
-# ---------- Jobs ----------
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
-    if not st:
-        return
+    if not st: return
     st.locked = True
-
-    # Freeze the question message (remove keyboard)
     try:
         await context.bot.edit_message_reply_markup(chat_id=chat_id, message_id=st.q_msg_id, reply_markup=None)
-    except Exception:
-        pass
-
-    # Tally & recap
+    except Exception: pass
     qidx = st.q_index
     q = st.questions[qidx]
     per = st.per_q_answers.get(qidx, {})
@@ -135,16 +117,12 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         if choice == q.correct:
             st.totals[uid] = st.totals.get(uid, 0) + 1
             correcters.append(uid)
-
     if correcters:
         names = [esc(st.players.get(uid, str(uid))) for uid in correcters[:10]]
         recap = f"✅ Correct: <b>{esc(q.options[q.correct])}</b>\n🏁 Correct answers: " + ", ".join(names)
     else:
         recap = f"✅ Correct: <b>{esc(q.options[q.correct])}</b>\n😶 Nobody got it."
-
     await tg("recap.send", context.bot.send_message, chat_id=chat_id, text=recap, parse_mode=ParseMode.HTML)
-
-    # Next step
     st.q_index += 1
     if st.q_index >= st.limit:
         await finish_quiz(context, st)
@@ -159,17 +137,12 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
                  parse_mode=ParseMode.HTML)
     if not m:
         log.error("Failed to send question. Ending session.")
-        await finish_quiz(context, st)
-        return
-    st.q_msg_id = m.message_id
-    st.q_start_ts = time.time()
-    st.locked = False
+        await finish_quiz(context, st); return
+    st.q_msg_id = m.message_id; st.q_start_ts = time.time(); st.locked = False
     st.answered_now[st.q_index] = set()
-    # Close this question after QUESTION_TIME
     context.job_queue.run_once(close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id}, name=f"close:{st.chat_id}:{st.q_index}")
 
 async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
-    # Simple leaderboard
     if not st.totals:
         await tg("finish.none", context.bot.send_message, chat_id=st.chat_id, text="Quiz finished. No correct answers recorded.")
     else:
@@ -182,7 +155,6 @@ async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         await tg("finish.board", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
     GAMES.pop(st.chat_id, None)
 
-# ---------- Admin helper ----------
 async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
     try:
         m = await context.bot.get_chat_member(chat_id, user_id)
@@ -190,7 +162,6 @@ async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: in
     except Exception:
         return False
 
-# ---------- Commands ----------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "✨ <b>Quiz Bot</b>\n"
@@ -206,8 +177,7 @@ async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private" and ADMINS_ONLY:
         if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
-            await update.message.reply_text("Only group admins can configure the quiz here.")
-            return
+            await update.message.reply_text("Only group admins can configure the quiz here."); return
     rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
              InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
              InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
@@ -217,13 +187,11 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     if not q.data.startswith("cfg:"): return
     chat_id = q.message.chat.id
-
     if q.message.chat.type != "private" and ADMINS_ONLY:
         if not await is_admin(context, chat_id, q.from_user.id):
             try: await q.answer("Only group admins can change quiz settings here.", show_alert=True)
             except Exception: pass
             return
-
     _, kind, val = q.data.split(":")
     if kind == "mode":
         if val not in MODES:
@@ -231,13 +199,11 @@ async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         SETTINGS.setdefault(chat_id, {})["mode"] = val
         try: await q.edit_message_text(f"Mode set to <b>{esc(val.title())}</b> ✅", parse_mode=ParseMode.HTML)
         except Exception: pass
-        # show lengths
         rows = [[InlineKeyboardButton(str(n), callback_data=f"cfg:len:{n}") for n in (10,20,30)],
                 [InlineKeyboardButton(str(n), callback_data=f"cfg:len:{n}") for n in (40,50)]]
         await tg("len.send", context.bot.send_message, chat_id=chat_id,
                  text="<b>Step 2/2</b>: How many questions?", reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
         return
-
     if kind == "len":
         try: length = int(val)
         except: await q.edit_message_text("Invalid length."); return
@@ -307,23 +273,19 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     st = GAMES.get(chat_id)
     if not st: 
-        try: await q.answer("No active quiz here.")
-        except: pass
+        try: await q.answer("No active quiz here."); except: pass
         return
     if st.locked or st.q_index + 1 != qnum:
-        try: await q.answer("Too late for this one."); 
-        except: pass
+        try: await q.answer("Too late for this one."); except: pass
         return
     st.answered_now.setdefault(st.q_index, set())
     if user.id in st.answered_now[st.q_index]:
-        try: await q.answer("Only your first answer counts.")
-        except: pass
+        try: await q.answer("Only your first answer counts."); except: pass
         return
     st.answered_now[st.q_index].add(user.id)
     st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
     st.per_q_answers.setdefault(st.q_index, {})[user.id] = opt
-    try: await q.answer("Locked in!")
-    except: pass
+    try: await q.answer("Locked in!"); except: pass
 
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -331,11 +293,8 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await is_admin(context, chat_id, update.effective_user.id):
             await update.message.reply_text("Only group admins can stop here."); return
     st = GAMES.get(chat_id)
-    if not st:
-        await update.message.reply_text("No active quiz.")
-        return
-    st.limit = st.q_index + 1
-    st.locked = True
+    if not st: await update.message.reply_text("No active quiz."); return
+    st.limit = st.q_index + 1; st.locked = True
     await finish_quiz(context, st)
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -346,51 +305,37 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     GAMES.pop(chat_id, None); SETTINGS.pop(chat_id, None)
     await update.message.reply_text("✅ Reset. Use /menu then /startquiz.")
 
-# ---------- Keepalive for Web services ----------
 def start_keepalive_server():
     port = os.getenv("PORT")
-    if not port: 
-        log.info("No $PORT detected — assuming Worker mode.")
-        return
+    if not port:
+        log.info("No $PORT detected — assuming Worker mode."); return
     try: port = int(port)
-    except: 
-        log.warning("Invalid PORT=%r; skipping keepalive", os.getenv("PORT"))
-        return
+    except: log.warning("Invalid PORT=%r; skipping keepalive", os.getenv("PORT")); return
     class H(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8")
-            self.end_headers(); self.wfile.write(b"ok")
+        def do_GET(self): self.send_response(200); self.send_header("Content-Type","text/plain"); self.end_headers(); self.wfile.write(b"ok")
         def log_message(self, *a, **k): return
     threading.Thread(target=lambda: HTTPServer(("0.0.0.0", port), H).serve_forever(), daemon=True).start()
 
-# ---------- Error handler ----------
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log.exception("Unhandled error: %s", context.error)
 
-# ---------- Build/Run ----------
 def build_app() -> Application:
     token = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
-
+    if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
     builder = Application.builder().token(token)
-    # Make rate limiter optional (won't crash if extra not installed)
     try:
         from telegram.ext import AIORateLimiter
         builder = builder.rate_limiter(AIORateLimiter())
     except Exception as e:
         log.info("Rate limiter unavailable; continuing without it: %s", e)
-
     app = builder.build()
     app.add_error_handler(on_error)
-
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("ping",   cmd_ping))
     app.add_handler(CommandHandler("menu",   cmd_menu))
     app.add_handler(CommandHandler("startquiz", cmd_startquiz))
     app.add_handler(CommandHandler("stop",   cmd_stop))
     app.add_handler(CommandHandler("reset",  cmd_reset))
-
     app.add_handler(CallbackQueryHandler(cfg_click,   pattern=r"^cfg:"))
     app.add_handler(CallbackQueryHandler(start_click, pattern=r"^start:(beginner|standard|expert):\d+$"))
     app.add_handler(CallbackQueryHandler(on_answer,   pattern=r"^ans:\d+:\d$"))
@@ -401,7 +346,14 @@ if __name__ == "__main__":
     start_keepalive_server()
     app = build_app()
 
-    # No post_init here (to be compatible with your PTB build)
+    # Important: ensure no webhook is set (otherwise polling is blocked with 409 Conflict)
+    try:
+        asyncio.run(app.bot.delete_webhook(drop_pending_updates=True))
+        me = asyncio.run(app.bot.get_me())
+        log.info("Authorized as @%s (id=%s)", me.username, me.id)
+    except Exception as e:
+        log.warning("Startup checks failed: %s", e)
+
     app.run_polling(
         allowed_updates=["message", "callback_query"],
         drop_pending_updates=True,
