@@ -1,2 +1,3 @@
-python-telegram-bot==21.*
-python-telegram-bot[job-queue]==21.*
+
+# Minimal requirements for base-level bot
+python-telegram-bot>=21.0,<22
