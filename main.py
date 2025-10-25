@@ -473,17 +473,16 @@ def build_app() -> Application:
     return app
 
 if __name__ == "__main__":
-    # ---- DO NOT use Application.run_polling() on Python 3.13 ----
-    import asyncio
+    # ---- Python 3.13 + PTB 21: manual lifecycle, no run_polling(), no wait_until_shutdown() ----
+    import asyncio, signal
 
     log.info("Starting quiz bot…")
-    start_keepalive_server()  # ok for Railway "Web" services
+    start_keepalive_server()
 
     async def main():
-        # Build app
         app = build_app()
 
-        # Make sure polling isn't blocked by an old webhook
+        # Ensure webhook is gone so polling isn't blocked
         try:
             await app.bot.delete_webhook(drop_pending_updates=True)
             me = await app.bot.get_me()
@@ -491,20 +490,30 @@ if __name__ == "__main__":
         except Exception as e:
             log.warning("Startup checks failed: %s", e)
 
-        # PTB manual lifecycle (works on 3.13)
+        # Start PTB pieces
         await app.initialize()
         await app.start()
-
-        # Start polling and wait until shutdown
         await app.updater.start_polling(
             allowed_updates=["message", "callback_query"],
             drop_pending_updates=True,
         )
-        await app.updater.wait_until_shutdown()
+
+        # Idle until SIGINT/SIGTERM
+        stop = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, stop.set)
+            except NotImplementedError:
+                pass
+        await stop.wait()
 
         # Graceful shutdown
+        try:
+            await app.updater.stop()
+        except Exception:
+            pass
         await app.stop()
         await app.shutdown()
 
-    # Create & run our own loop (so get_event_loop never fails)
     asyncio.run(main())
