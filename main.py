@@ -1,5 +1,6 @@
 # Telegram Quiz Bot — stable & admin-only (PTB 21, Python 3.13 friendly)
 from __future__ import annotations
+
 import os, json, time, random, math, html, logging, threading, uuid, asyncio, signal
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dataclasses import dataclass, field
@@ -18,16 +19,18 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(m
 log = logging.getLogger("quizbot")
 
 # ---------- FIXED SETTINGS ----------
-QUESTION_TIME = 10          # seconds to answer
-DELAY_NEXT    = 5           # seconds between questions
-TICK_SECONDS  = 1.0         # update the countdown once per second
+QUESTION_TIME = 10           # seconds to answer
+DELAY_NEXT    = 5            # seconds between questions
+TICK_SECONDS  = 1.0          # update the countdown once per second
 POINTS_MAX    = 100
 QUESTIONS_FILE = "questions.json"
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
-ADMINS_ONLY = True          # only admins can /menu, /startquiz, /stop, /reset in groups
+ADMINS_ONLY = True           # only admins can /menu, /startquiz, /stop, /reset in groups
 
+# Build/instance info (handy for debugging)
+BUILD_ID = os.getenv("BUILD_ID", "dev")
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 
 def esc(s: str) -> str:
@@ -42,7 +45,7 @@ async def _tg(desc: str, coro, *args, **kwargs):
             return await coro(*args, **kwargs)
         except RetryAfter as e:
             wait = float(getattr(e, "retry_after", 1.0)) + 0.5
-            if attempts >= 3: 
+            if attempts >= 3:
                 log.warning("%s: RetryAfter %.2fs, giving up", desc, wait)
                 return None
             log.warning("%s: RetryAfter %.2fs (attempt %d/3)", desc, wait, attempts)
@@ -55,9 +58,11 @@ async def _tg(desc: str, coro, *args, **kwargs):
             log.warning("%s: %s; backoff %.2fs (attempt %d/3)", desc, type(e).__name__, wait, attempts)
             await asyncio.sleep(wait)
         except BadRequest as e:
-            log.debug("%s: BadRequest ignored: %s", desc, e); return None
+            log.debug("%s: BadRequest ignored: %s", desc, e)
+            return None
         except Exception as e:
-            log.error("%s: unexpected %s: %s", desc, type(e).__name__, e); return None
+            log.error("%s: unexpected %s: %s", desc, type(e).__name__, e)
+            return None
 
 # ---------- DATA ----------
 @dataclass
@@ -102,7 +107,8 @@ SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
 # ---------- HELPERS ----------
 def points(elapsed: float) -> int:
-    if elapsed >= QUESTION_TIME: return 0
+    if elapsed >= QUESTION_TIME:
+        return 0
     return int(round((max(0.0, QUESTION_TIME - elapsed) / QUESTION_TIME) * POINTS_MAX))
 
 def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
@@ -120,11 +126,15 @@ def load_questions() -> List[QItem]:
         data = json.load(f)
     out: List[QItem] = []
     for i, q in enumerate(data, start=1):
-        if not all(k in q for k in ("text","options","correct","mode")): raise ValueError(f"Q{i} missing fields")
-        if q["mode"] not in MODES: raise ValueError(f"Q{i} invalid mode {q['mode']}")
-        if len(q["options"]) != 4: raise ValueError(f"Q{i} must have 4 options")
+        if not all(k in q for k in ("text","options","correct","mode")):
+            raise ValueError(f"Q{i} missing fields")
+        if q["mode"] not in MODES:
+            raise ValueError(f"Q{i} invalid mode {q['mode']}")
+        if len(q["options"]) != 4:
+            raise ValueError(f"Q{i} must have 4 options")
         c = int(q["correct"])
-        if not 0 <= c < 4: raise ValueError(f"Q{i} invalid correct index {c}")
+        if not 0 <= c < 4:
+            raise ValueError(f"Q{i} invalid correct index {c}")
         out.append(QItem(q["text"], list(q["options"]), c, q["mode"]))
     return out
 
@@ -161,12 +171,14 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     if not st or st.q_index != qidx:
         context.job.schedule_removal(); return
     left = max(0, int(math.ceil(end_ts - time.time())))
-    if left <= 0: 
+    if left <= 0:
         context.job.schedule_removal()
         return
     await _tg("tick.edit", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
-              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left, len(st.per_q_answers.get(st.q_index,{}))),
-              reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1), parse_mode=ParseMode.HTML)
+              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left,
+                                len(st.per_q_answers.get(st.q_index,{}))),
+              reply_markup=answer_kb(st.questions[st.q_index], st.q_index+1),
+              parse_mode=ParseMode.HTML)
 
 async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
@@ -176,14 +188,17 @@ async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
     left = max(0, int(math.ceil(end_ts - time.time())))
     if left <= 0:
         context.job.schedule_removal()
-        await _tg("gap.final", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id, text="🚀 Starting next question…")
+        await _tg("gap.final", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
+                  text="🚀 Starting next question…")
         return
-    await _tg("gap.tick", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id, text=f"⏭️ Next question in {left}s…")
+    await _tg("gap.tick", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id,
+              text=f"⏭️ Next question in {left}s…")
 
 async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qidx: int):
     q = st.questions[qidx]
     per = st.per_q_answers.get(qidx, {})
-    scorers = sorted(((uid, rec.points) for uid, rec in per.items() if rec.is_correct), key=lambda t:t[1], reverse=True)
+    scorers = sorted(((uid, rec.points) for uid, rec in per.items() if rec.is_correct),
+                     key=lambda t:t[1], reverse=True)
     scores, corrects = compute_totals(st)
     ranking = sorted(scores.items(), key=lambda x:x[1], reverse=True)
 
@@ -203,7 +218,8 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
             medal = ("🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}.")
             lines.append(f"{medal} {name} — {corr} correct — {total} pts")
 
-    await _tg("recap.send", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+    await _tg("recap.send", context.bot.send_message, chat_id=st.chat_id,
+              text="\n".join(lines), parse_mode=ParseMode.HTML)
 
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
@@ -213,7 +229,8 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
 
     # freeze the message
     await _tg("close.freeze", context.bot.edit_message_text, chat_id=chat_id, message_id=st.q_msg_id,
-              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0, len(st.per_q_answers.get(st.q_index,{}))),
+              text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
+                                len(st.per_q_answers.get(st.q_index,{}))),
               reply_markup=None, parse_mode=ParseMode.HTML)
 
     await post_round_recap(context, st, st.q_index)
@@ -300,12 +317,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping",
+        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping • /version",
         parse_mode=ParseMode.HTML
     )
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"pong from {INSTANCE_ID}")
+
+async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"version: {BUILD_ID} • instance: {INSTANCE_ID}")
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private" and ADMINS_ONLY:
@@ -385,7 +405,10 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
         cfg=SETTINGS.get(chat_id,{}); mode = mode or cfg.get("mode"); length = length or cfg.get("length")
     if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
-        await update.message.reply_text("Please run /menu and complete both steps first, or use:\n/startquiz <mode> <length>\nExample: /startquiz beginner 10"); 
+        await update.message.reply_text(
+            "Please run /menu and complete both steps first, or use:\n"
+            "/startquiz <mode> <length>\nExample: /startquiz beginner 10"
+        )
         return
     await do_startquiz(context, chat_id, user.id, mode, int(length))
 
@@ -393,7 +416,7 @@ async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter
     pool = filter_by_mode(load_questions(), str(mode))
     if len(pool) < int(length):
         await _tg("start.notenough", context.bot.send_message, chat_id=chat_id,
-                  text=f"Not enough questions in <b>{esc(mode)}</b> (need {length}).", parse_mode=ParseMode.HTML); 
+                  text=f"Not enough questions in <b>{esc(mode)}</b> (need {length}).", parse_mode=ParseMode.HTML)
         return
     qs = shuffle_qs(pool)[: int(length)]
     st = GameState(chat_id=chat_id, started_by=starter_user_id, questions=qs, limit=int(length), mode=str(mode))
@@ -407,10 +430,11 @@ async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter
 # ---------- ANSWERS / RESULTS ----------
 async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q=update.callback_query; user=q.from_user; chat_id=q.message.chat.id
-    try: _, qnum_str, opt_str = q.data.split(":"); qnum=int(qnum_str); opt=int(opt_str)
+    try:
+        _, qnum_str, opt_str = q.data.split(":"); qnum=int(qnum_str); opt=int(opt_str)
     except Exception: return
     st=GAMES.get(chat_id)
-    if not st: 
+    if not st:
         try: await q.answer("No active quiz here.", show_alert=False)
         except: pass
         return
@@ -439,7 +463,8 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     st.per_q_answers[st.q_index][user.id]=AnswerRec(opt,is_correct,elapsed,pts)
     if is_correct: st.corrects[user.id]=st.corrects.get(user.id,0)+1
     st.totals[user.id]=st.totals.get(user.id,0)+pts
-    try: await q.answer(f"You chose: {st.questions[st.q_index].options[opt]}\n"+("✅ Correct" if is_correct else "❌ Locked"), show_alert=False)
+    try:
+        await q.answer(f"You chose: {st.questions[st.q_index].options[opt]}\n"+("✅ Correct" if is_correct else "❌ Locked"), show_alert=False)
     except: pass
 
 async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -513,15 +538,18 @@ async def on_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------- KEEP-ALIVE (for Web service) ----------
 def start_keepalive_if_needed():
     port_env = os.getenv("PORT")
-    if not port_env: 
-        log.info("No $PORT detected — assuming Worker service."); 
+    if not port_env:
+        log.info("No $PORT detected — assuming Worker service.")
         return
-    try: port=int(port_env)
-    except: 
-        log.warning("Invalid PORT=%r; skipping keep-alive", port_env); 
+    try:
+        port = int(port_env)
+    except Exception:
+        log.warning("Invalid PORT=%r; skipping keep-alive", port_env)
         return
     class H(BaseHTTPRequestHandler):
-        def do_GET(self): self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8"); self.end_headers(); self.wfile.write(b"ok")
+        def do_GET(self):
+            self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8")
+            self.end_headers(); self.wfile.write(b"ok")
         def log_message(self, *a, **k): return
     threading.Thread(target=lambda: HTTPServer(("0.0.0.0", port), H).serve_forever(), daemon=True).start()
     log.info("Keep-alive HTTP listening on 0.0.0.0:%d", port)
@@ -536,6 +564,7 @@ def build_app() -> Application:
     if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
 
     builder = Application.builder().token(token)
+    # Optional: enable AIORateLimiter if installed
     try:
         from telegram.ext import AIORateLimiter
         builder = builder.rate_limiter(AIORateLimiter())
@@ -557,6 +586,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("cancel",      cmd_stop))
     app.add_handler(CommandHandler("reset",       cmd_reset))
     app.add_handler(CommandHandler("ping",        cmd_ping))
+    app.add_handler(CommandHandler("version",     cmd_version))
     app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
     app.add_handler(MessageHandler(filters.COMMAND, on_unknown))
     app.add_error_handler(on_error)
@@ -593,6 +623,7 @@ async def _main():
             pass
     await stop.wait()
 
+    # graceful shutdown
     try:
         await app.updater.stop()
     except Exception:
