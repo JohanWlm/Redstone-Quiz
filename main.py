@@ -473,20 +473,38 @@ def build_app() -> Application:
     return app
 
 if __name__ == "__main__":
+    # ---- DO NOT use Application.run_polling() on Python 3.13 ----
+    import asyncio
+
     log.info("Starting quiz bot…")
-    start_keepalive_server()
-    app = build_app()
+    start_keepalive_server()  # ok for Railway "Web" services
 
-    # Make sure no webhook blocks polling
-    try:
-        asyncio.run(app.bot.delete_webhook(drop_pending_updates=True))
-        me = asyncio.run(app.bot.get_me())
-        log.info("Authorized as @%s (id=%s)", me.username, me.id)
-    except Exception as e:
-        log.warning("Startup checks failed: %s", e)
+    async def main():
+        # Build app
+        app = build_app()
 
-    app.run_polling(
-        allowed_updates=["message", "callback_query"],
-        drop_pending_updates=True,
-        close_loop=False
-    )
+        # Make sure polling isn't blocked by an old webhook
+        try:
+            await app.bot.delete_webhook(drop_pending_updates=True)
+            me = await app.bot.get_me()
+            log.info("Authorized as @%s (id=%s)", me.username, me.id)
+        except Exception as e:
+            log.warning("Startup checks failed: %s", e)
+
+        # PTB manual lifecycle (works on 3.13)
+        await app.initialize()
+        await app.start()
+
+        # Start polling and wait until shutdown
+        await app.updater.start_polling(
+            allowed_updates=["message", "callback_query"],
+            drop_pending_updates=True,
+        )
+        await app.updater.wait_until_shutdown()
+
+        # Graceful shutdown
+        await app.stop()
+        await app.shutdown()
+
+    # Create & run our own loop (so get_event_loop never fails)
+    asyncio.run(main())
