@@ -1,5 +1,4 @@
-
-# Telegram Quiz Bot — stable & admin-only (PTB 21, Python 3.13 friendly)
+# Telegram Quiz Bot — stable, freeze-resistant, admin-only (PTB 21, Python 3.13 friendly)
 from __future__ import annotations
 
 import os, json, time, random, math, html, logging, threading, uuid, asyncio, signal
@@ -19,19 +18,40 @@ from telegram.ext import (
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger("quizbot")
 
-# ---------- FIXED SETTINGS ----------
-QUESTION_TIME = 10           # seconds per question
-DELAY_NEXT    = 5            # seconds between questions
-TICK_SECONDS  = 1.0          # countdown update interval (seconds)
-POINTS_MAX    = 100
-QUESTIONS_FILE = "questions.json"
+# ---------- SETTINGS (read from env with safe defaults) ----------
+def _int_env(name: str, default: int, lo: int, hi: int) -> int:
+    v = os.getenv(name)
+    if v is None: return default
+    try:
+        x = int(v); return max(lo, min(hi, x))
+    except Exception:
+        return default
+
+def _float_env(name: str, default: float, lo: float, hi: float) -> float:
+    v = os.getenv(name)
+    if v is None: return default
+    try:
+        x = float(v); return max(lo, min(hi, x))
+    except Exception:
+        return default
+
+def _bool_env(name: str, default: bool) -> bool:
+    v = os.getenv(name)
+    if v is None: return default
+    return v.strip().lower() in ("1","true","yes","y","on")
+
+QUESTION_TIME  = _int_env("QUESTION_TIME", 10, 3, 120)        # seconds per question
+DELAY_NEXT     = _int_env("DELAY_NEXT",    5, 1, 60)          # seconds between questions
+TICK_SECONDS   = _float_env("TICK_SECONDS", 1.0, 0.5, 5.0)    # countdown edit interval
+POINTS_MAX     = _int_env("POINTS_MAX",   100, 10, 1000)
+QUESTIONS_FILE = os.getenv("QUESTIONS_FILE", "questions.json")
+ADMINS_ONLY    = _bool_env("ADMINS_ONLY", True)
 
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
-ADMINS_ONLY = True           # only admins can /menu, /startquiz, /stop, /reset in groups
 
-# Build/instance info (handy for debugging and multi-replica checks)
-BUILD_ID = os.getenv("BUILD_ID", "dev")
+# Build/instance info (handy for debugging/multi-replica)
+BUILD_ID    = os.getenv("BUILD_ID", "dev")
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 
 def esc(s: str) -> str:
@@ -100,6 +120,7 @@ class GameState:
     q_index: int = 0
     q_msg_id: Optional[int] = None
     q_start_ts: Optional[float] = None
+    q_end_ts: Optional[float] = None   # exact deadline for current question
     locked: bool = False
 
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
@@ -109,6 +130,7 @@ class GameState:
     totals: Dict[int, int] = field(default_factory=dict)
     corrects: Dict[int, int] = field(default_factory=dict)
 
+# Active state per chat
 GAMES: Dict[int, GameState] = {}
 LAST: Dict[int, dict] = {}
 SETTINGS: Dict[int, Dict[str, int | str]] = {}
@@ -174,14 +196,16 @@ def cancel_jobs_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
 # ---------- JOBS ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]; qidx = d["qidx"]
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
     st = GAMES.get(chat_id)
-    if not st or st.q_index != qidx:
+    if not st or st.q_index != qidx or st.q_end_ts is None:
         context.job.schedule_removal(); return
-    left = max(0, int(math.ceil(end_ts - time.time())))
+
+    left = max(0, int(math.ceil(st.q_end_ts - time.time())))
     if left <= 0:
         context.job.schedule_removal(); return
-    # Edit text only (leave keyboard unchanged) to reduce payload
+
+    # Edit text only (keyboard unchanged) to reduce payload under load
     fire_and_forget(_tg("tick.edit", context.bot.edit_message_text,
         chat_id=chat_id, message_id=msg_id,
         text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left,
@@ -235,10 +259,21 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
-    if not st: return
+    if not st or st.q_end_ts is None:
+        return
+
+    now = time.time()
+    # Safety guard: if this fired a little early, reschedule to exact deadline
+    if now < st.q_end_ts - 0.15:
+        when = max(0.0, st.q_end_ts - now)
+        context.job_queue.run_once(close_question, when=when, data={"chat_id": chat_id})
+        return
+
+    if st.locked:
+        return
     st.locked = True
 
-    # Freeze question message (non-blocking)
+    # Freeze question (remove keyboard) — non-blocking
     fire_and_forget(_tg("close.freeze", context.bot.edit_message_text,
         chat_id=chat_id, message_id=st.q_msg_id,
         text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
@@ -246,14 +281,14 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         reply_markup=None, parse_mode=ParseMode.HTML
     ))
 
-    # Recap (non-blocking)
+    # Recap — non-blocking
     fire_and_forget(post_round_recap(context, st, st.q_index))
 
-    # Free memory for this question immediately
+    # Free memory for this question
     st.per_q_answers.pop(st.q_index, None)
     st.answered_now.pop(st.q_index, None)
 
-    # Gap + next question: schedule next step NOW so timeline never stalls
+    # Gap & next question (schedule next step NOW so the timeline never stalls)
     gap_end = time.time() + DELAY_NEXT
 
     async def _gap_bundle():
@@ -288,18 +323,19 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     if not m:
         log.error("ask_question: failed to send; ending session")
         await finish_quiz(context, st); return
-    st.q_msg_id = m.message_id
-    st.q_start_ts = time.time()
-    st.locked = False
-    st.answered_now[st.q_index] = set()
-    end_ts = st.q_start_ts + QUESTION_TIME
 
-    # one ticker, one closer
+    st.q_msg_id  = m.message_id
+    st.q_start_ts = time.time()
+    st.q_end_ts   = st.q_start_ts + QUESTION_TIME
+    st.locked     = False
+    st.answered_now[st.q_index] = set()
+
+    # one ticker, one closer (ticker reads st.q_end_ts; closer double-checks)
     context.job_queue.run_repeating(
         tick_edit,
         interval=TICK_SECONDS,
         first=TICK_SECONDS,
-        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "end_ts": end_ts, "qidx": st.q_index},
+        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "qidx": st.q_index},
         name=f"tick:{st.chat_id}:{st.q_index}",
     )
     context.job_queue.run_once(
@@ -335,7 +371,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping",
+        "Commands:\n/start • /help • /menu • /startquiz\n"
+        "/leaderboard • /answer • /stop • /reset\n/ping",
         parse_mode=ParseMode.HTML
     )
 
