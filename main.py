@@ -19,7 +19,7 @@ log = logging.getLogger("quizbot")
 
 # --------------- ENV ---------------------
 def _int(name, d, lo, hi):
-    v = os.getenv(name); 
+    v = os.getenv(name)
     if v is None: return d
     try:
         x=int(v); return max(lo, min(hi, x))
@@ -37,9 +37,9 @@ def _bool(name, d):
     if v is None: return d
     return v.strip().lower() in ("1","true","yes","y","on")
 
-QUESTION_TIME  = _int("QUESTION_TIME", 10, 3, 120)      # how long buttons stay
-DELAY_NEXT     = _int("DELAY_NEXT",     3, 1, 60)       # gap after timeout
-TICK_SECONDS   = _float("TICK_SECONDS", 2.0, 0.5, 5.0)  # countdown text update cadence
+QUESTION_TIME  = _int("QUESTION_TIME", 10, 3, 120)      # full time buttons remain
+DELAY_NEXT     = _int("DELAY_NEXT",     3, 1, 60)       # gap between questions
+TICK_SECONDS   = _float("TICK_SECONDS", 2.0, 0.5, 5.0)  # countdown edit cadence
 POINTS_MAX     = _int("POINTS_MAX",   100, 10, 1000)
 QUESTIONS_FILE = os.getenv("QUESTIONS_FILE", "questions.json")
 ADMINS_ONLY    = _bool("ADMINS_ONLY", True)
@@ -49,7 +49,8 @@ MODES = ("beginner", "standard", "expert")
 
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 
-def esc(s: str) -> str: return html.escape(str(s), quote=True)
+def esc(s: str) -> str:
+    return html.escape(str(s), quote=True)
 
 # ----------- SAFE TELEGRAM CALL ----------
 async def _tg(desc: str, coro, *args, **kwargs):
@@ -76,15 +77,25 @@ async def _tg(desc: str, coro, *args, **kwargs):
 # -------------- DATA ---------------------
 @dataclass
 class QItem:
-    text: str; options: List[str]; correct: int; mode: str
+    text: str
+    options: List[str]
+    correct: int
+    mode: str
 
 @dataclass
 class AnswerRec:
-    choice: int; is_correct: bool; elapsed: float; points: int
+    choice: int
+    is_correct: bool
+    elapsed: float
+    points: int
 
 @dataclass
 class GameState:
-    chat_id: int; started_by: int; questions: List[QItem]; limit: int; mode: str
+    chat_id: int
+    started_by: int
+    questions: List[QItem]
+    limit: int
+    mode: str
     q_index: int = 0
     q_msg_id: Optional[int] = None
     q_start_mono: Optional[float] = None
@@ -158,7 +169,7 @@ def cancel_jobs(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         log.warning("job cleanup error: %s", e)
 
 # -------------- JOBS ---------------------
-import asyncio  # keep after PTB imports
+import asyncio
 
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
@@ -169,7 +180,7 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     left = max(0, int(math.ceil(st.q_end_mono - time.monotonic())))
     if left <= 0:
         context.job.schedule_removal(); return
-    # IMPORTANT: do NOT pass reply_markup here -> keeps keyboard intact
+    # IMPORTANT: do NOT pass reply_markup here -> keyboard stays
     await _tg("tick.edit", context.bot.edit_message_text,
               chat_id=chat_id, message_id=msg_id,
               text=fmt_q(st.q_index+1, st.limit, st.questions[st.q_index], left,
@@ -219,7 +230,7 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     st = GAMES.get(chat_id)
     if not st or st.q_end_mono is None:
         return
-    # Guard against early wake-up: if it's not time yet, rearm exactly
+    # Guard against early wake-up: rearm to exact time if needed
     now = time.monotonic()
     if now < st.q_end_mono - 0.05:
         context.job_queue.run_once(close_question, when=st.q_end_mono - now, data={"chat_id": chat_id})
@@ -227,14 +238,14 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     if st.locked: return
     st.locked = True
 
-    # Freeze the current message -> remove keyboard exactly at timeout
+    # Remove keyboard exactly at timeout
     await _tg("close.freeze", context.bot.edit_message_text,
               chat_id=chat_id, message_id=st.q_msg_id,
               text=fmt_q(st.q_index+1, st.limit, st.questions[st.q_index], 0,
                          len(st.per_q_answers.get(st.q_index, {}))),
               reply_markup=None, parse_mode=ParseMode.HTML)
 
-    # Recap + housekeeping
+    # Recap + free per-question memory
     await post_round_recap(context, st, st.q_index)
     st.per_q_answers.pop(st.q_index, None)
     st.answered_now.pop(st.q_index, None)
@@ -327,8 +338,9 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
              InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
              InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
-    await update.message.reply_text("<b>Step 1/2</b>: Choose a <b>Mode</b>.",
-                                    reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
+    await _tg("menu.send", context.bot.send_message, chat_id=update.effective_chat.id,
+              text="<b>Step 1/2</b>: Choose a <b>Mode</b>.",
+              reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
 
 async def _send_length_menu(update_or_query, context):
     rows = [[InlineKeyboardButton("10", callback_data="cfg:len:10"),
@@ -461,9 +473,11 @@ async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scores,corrects=compute_totals(st); source=f"Current session — {st.q_index+1}/{st.limit} asked"; name_of=st.players
     else:
         snap=LAST.get(chat_id)
-        if not snap: await update.message.reply_text("No session found here yet."); return
-        scores=snap["scores"]; corrects=snap["corrects"]; source=f"Last finished — {snap['limit']} questions"]; name_of=snap["players"]
-    if not scores: await update.message.reply_text("No participants yet."); return
+        if not snap:
+            await update.message.reply_text("No session found here yet."); return
+        scores=snap["scores"]; corrects=snap["corrects"]; source=f"Last finished — {snap['limit']} questions"; name_of=snap["players"]
+    if not scores:
+        await update.message.reply_text("No participants yet."); return
     ranking=sorted(scores.items(), key=lambda x:x[1], reverse=True)
     lines=[f"🏁 <b>Leaderboard</b> ({esc(source)})"]
     for rank,(uid,pts_) in enumerate(ranking[:10],start=1):
@@ -474,14 +488,16 @@ async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id=update.effective_chat.id; snap=LAST.get(chat_id)
-    if not snap: await update.message.reply_text("No finished quiz found here yet."); return
+    if not snap:
+        await update.message.reply_text("No finished quiz found here yet."); return
     qs: List[QItem]=snap["questions"]
     lines=["📘 <b>All Correct Answers</b>"]
     for i,q in enumerate(qs, start=1):
         lines.append(f"Q{i}: <b>{esc(q.options[q.correct])}</b>")
         if len("\n".join(lines))>3500:
             await _tg("answer.chunk", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML); lines=[]
-    if lines: await _tg("answer.final", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+    if lines:
+        await _tg("answer.final", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
 
 async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     cancel_jobs(context, st.chat_id)
@@ -507,7 +523,8 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await is_admin(context, here_id, user.id):
             await update.message.reply_text("Only group admins can stop the quiz here."); return
     st=GAMES.get(here_id)
-    if not st: await update.message.reply_text("No active quiz to stop."); return
+    if not st:
+        await update.message.reply_text("No active quiz to stop."); return
     st.limit=st.q_index+1; st.locked=True
     await update.message.reply_text("Stopping quiz…"); cancel_jobs(context, st.chat_id); await finish_quiz(context, st)
 
@@ -531,7 +548,7 @@ def start_keepalive_if_needed():
         log.info("No $PORT detected — assuming Worker service.")
         return
     try: port = int(port_env)
-    except: 
+    except:
         log.warning("Invalid PORT=%r; skipping keep-alive", port_env); return
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -577,5 +594,4 @@ if __name__ == "__main__":
     log.info("Starting quiz bot…")
     start_keepalive_if_needed()
     app = build_app()
-    # simple, stable start
     app.run_polling(drop_pending_updates=True)
