@@ -1,1 +1,1 @@
-python-telegram-bot[job-queue,rate-limiter]>=21.0,<22  # rebuild
+python-telegram-bot[job-queue,rate-limiter]>=21.0,<22
