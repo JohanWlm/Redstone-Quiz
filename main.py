@@ -1,3 +1,4 @@
+
 # Telegram Quiz Bot — stable & admin-only (PTB 21, Python 3.13 friendly)
 from __future__ import annotations
 
@@ -99,7 +100,6 @@ class GameState:
     q_index: int = 0
     q_msg_id: Optional[int] = None
     q_start_ts: Optional[float] = None
-    q_end_ts: Optional[float] = None      # <— add this line
     locked: bool = False
 
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
@@ -109,7 +109,7 @@ class GameState:
     totals: Dict[int, int] = field(default_factory=dict)
     corrects: Dict[int, int] = field(default_factory=dict)
 
-GAMES: Dict[int, GameState] = {}s
+GAMES: Dict[int, GameState] = {}
 LAST: Dict[int, dict] = {}
 SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
@@ -174,15 +174,13 @@ def cancel_jobs_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
 # ---------- JOBS ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]; qidx = d["qidx"]
     st = GAMES.get(chat_id)
-    if not st or st.q_index != qidx or st.q_end_ts is None:
+    if not st or st.q_index != qidx:
         context.job.schedule_removal(); return
-
-    left = max(0, int(math.ceil(st.q_end_ts - time.time())))
+    left = max(0, int(math.ceil(end_ts - time.time())))
     if left <= 0:
         context.job.schedule_removal(); return
-
     # Edit text only (leave keyboard unchanged) to reduce payload
     fire_and_forget(_tg("tick.edit", context.bot.edit_message_text,
         chat_id=chat_id, message_id=msg_id,
@@ -237,21 +235,10 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
-    if not st or st.q_end_ts is None:
-        return
-
-    now = time.time()
-    # Safety: if we arrived early (scheduler jitter), try again at the exact deadline
-    if now < st.q_end_ts - 0.15:  # tiny guard margin
-        when = max(0.0, st.q_end_ts - now)
-        context.job_queue.run_once(close_question, when=when, data={"chat_id": chat_id})
-        return
-
-    if st.locked:  # already closed
-        return
+    if not st: return
     st.locked = True
 
-    # Freeze question message (non-blocking); now it's safe to remove keyboard
+    # Freeze question message (non-blocking)
     fire_and_forget(_tg("close.freeze", context.bot.edit_message_text,
         chat_id=chat_id, message_id=st.q_msg_id,
         text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
@@ -266,7 +253,7 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     st.per_q_answers.pop(st.q_index, None)
     st.answered_now.pop(st.q_index, None)
 
-    # Gap + next question: schedule next step NOW so the timeline never stalls
+    # Gap + next question: schedule next step NOW so timeline never stalls
     gap_end = time.time() + DELAY_NEXT
 
     async def _gap_bundle():
@@ -301,24 +288,23 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     if not m:
         log.error("ask_question: failed to send; ending session")
         await finish_quiz(context, st); return
-
     st.q_msg_id = m.message_id
     st.q_start_ts = time.time()
-    st.q_end_ts   = st.q_start_ts + QUESTION_TIME   # <— set canonical end time
     st.locked = False
     st.answered_now[st.q_index] = set()
+    end_ts = st.q_start_ts + QUESTION_TIME
 
-    # one ticker, one closer (use q_end_ts everywhere)
+    # one ticker, one closer
     context.job_queue.run_repeating(
         tick_edit,
         interval=TICK_SECONDS,
         first=TICK_SECONDS,
-        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "qidx": st.q_index},
+        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "end_ts": end_ts, "qidx": st.q_index},
         name=f"tick:{st.chat_id}:{st.q_index}",
     )
     context.job_queue.run_once(
         close_question,
-        when=QUESTION_TIME,  # scheduled, but we'll guard against early fire
+        when=QUESTION_TIME,
         data={"chat_id": st.chat_id},
         name=f"close:{st.chat_id}:{st.q_index}",
     )
