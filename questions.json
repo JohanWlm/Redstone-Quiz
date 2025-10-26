@@ -1,1652 +1,666 @@
-[
-  {
-    "text": "What is RedStone in the context of Web3?",
-    "options": [
-      "A modular oracle network for on-chain finance",
-      "A centralized exchange",
-      "A browser wallet",
-      "A blockchain L1"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which problem area do oracles like RedStone mainly solve?",
-    "options": [
-      "Bringing off-chain data on-chain securely",
-      "Scaling transaction throughput",
-      "Generating private keys",
-      "Building user interfaces"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which of these is a RedStone product?",
-    "options": [
-      "Price Feeds",
-      "AMM Router",
-      "NFT Marketplace",
-      "RPC Proxy"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What does a Price Feed provide to smart contracts?",
-    "options": [
-      "Asset price data",
-      "Consensus finality",
-      "Random numbers",
-      "Wallet addresses"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What does RedStone’s 'modular' design emphasize?",
-    "options": [
-      "Flexible data delivery and integration patterns",
-      "Fixed data model with one chain only",
-      "GPU mining",
-      "Custodial key storage"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Why do DeFi protocols need oracles?",
-    "options": [
-      "To fetch external data (like prices) in a trust-minimized way",
-      "To increase block size",
-      "To create NFTs automatically",
-      "To manage governance off-chain"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which is a typical use of oracles in lending protocols?",
-    "options": [
-      "Liquidation and collateral valuation",
-      "Block production",
-      "User authentication",
-      "Gas token minting"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "RedStone Price Feeds are designed to be:",
-    "options": [
-      "Reliable and efficient",
-      "Manual and slow",
-      "Proof-of-work only",
-      "Custodial"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What is 'Proof of Reserve' in the RedStone context?",
-    "options": [
-      "Attesting that on-chain assets are properly backed",
-      "Creating new tokens from reserves",
-      "Tracking MEV profits",
-      "Storing private keys"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What kind of assets can a PoR oracle help verify?",
-    "options": [
-      "Stablecoins and tokenized assets",
-      "Only NFTs",
-      "Only governance tokens",
-      "Only gas tokens"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What is RedStone Atom primarily about?",
-    "options": [
-      "Optimizing liquidations (capturing OEV) for lending",
-      "Bridging tokens cross-chain",
-      "NFT rarity scoring",
-      "Gas fee refunds"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "RedStone’s architecture aims to keep gas costs:",
-    "options": [
-      "Efficient for consumers",
-      "Unbounded",
-      "Paid by users off-chain",
-      "Zero in all cases"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A core promise of oracles is data:",
-    "options": [
-      "Integrity and freshness",
-      "User anonymity only",
-      "High hash rate",
-      "GPU acceleration"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which is most relevant to tokenized funds and RWAs?",
-    "options": [
-      "Proof of Reserve",
-      "NFT metadata pinning",
-      "MEV Search",
-      "State channels"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "In a quiz game, which RedStone product would be least relevant?",
-    "options": [
-      "Price Feeds",
-      "Proof of Reserve",
-      "Atom",
-      "AMM Liquidity Mining"
-    ],
-    "correct": 3,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which statement best describes RedStone’s mission?",
-    "options": [
-      "Serve DeFi with secure, flexible data infrastructure",
-      "Be a social media platform",
-      "Host NFT auctions",
-      "Be a centralized custody bank"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What does 'on-chain' mean for data consumption?",
-    "options": [
-      "Data is verified and used inside smart contracts",
-      "Data stored in spreadsheets",
-      "Data delivered by email",
-      "Data hosted on a private server only"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which outcome matters when liquidations trigger in lending?",
-    "options": [
-      "Accurate prices at the right time",
-      "Fancy UI animations",
-      "NFT rarity score",
-      "Gas token airdrops"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A modular oracle lets integrators:",
-    "options": [
-      "Choose delivery models that fit their chains and dApps",
-      "Use only a fixed endpoint",
-      "Avoid signatures entirely",
-      "Disable verification"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Why is timeliness important for oracle updates?",
-    "options": [
-      "Markets move quickly; stale data can be dangerous",
-      "It helps UI themes load faster",
-      "It increases token supply",
-      "It mints NFTs"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What does 'data source aggregation' typically improve?",
-    "options": [
-      "Robustness of the reported price",
-      "Gas refunds for users",
-      "Block size",
-      "Consensus speed on L1"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A simple way to reduce oracle manipulation is to:",
-    "options": [
-      "Aggregate multiple sources and verify signatures",
-      "Increase token emission",
-      "Reduce confirmations",
-      "Disable audits"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which data type is most common for DeFi price feeds?",
-    "options": [
-      "Numeric prices",
-      "Images",
-      "Strings of text",
-      "Private keys"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "RedStone can help which types of dApps?",
-    "options": [
-      "Lending, perps, RWAs, options",
-      "Only NFT drops",
-      "Only governance UIs",
-      "Only wallets"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which of these is typically NOT an oracle role?",
-    "options": [
-      "Wallet custody",
-      "Price delivery",
-      "Reserve attestation",
-      "Risk signals"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What is a 'consumer contract' in oracle terminology?",
-    "options": [
-      "A smart contract that reads oracle data",
-      "A user’s EOA",
-      "A centralized API server",
-      "An exchange hot wallet"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which phrase matches RedStone’s positioning?",
-    "options": [
-      "Build anything, anywhere (oracle-first)",
-      "GPU-mining as a service",
-      "Only one-chain support",
-      "No audits needed"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Why do protocols set deviation thresholds on price feeds?",
-    "options": [
-      "To decide when to update based on meaningful change",
-      "To throttle governance votes",
-      "To manage DNS",
-      "To change UI colors"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What is a 'heartbeat' in price feeds?",
-    "options": [
-      "A maximum time between updates",
-      "A transaction nonce",
-      "A block gas limit",
-      "A wallet seed"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "What is one benefit of off-chain signing then on-chain verification?",
-    "options": [
-      "Gas efficiency while preserving integrity",
-      "No need for keys",
-      "Higher block size",
-      "Lower cryptography"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which is true about RedStone and DeFi risk?",
-    "options": [
-      "It can provide inputs for risk-aware decisions",
-      "It replaces audits fully",
-      "It prevents all hacks",
-      "It runs governance automatically"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Price Feeds are most critical for:",
-    "options": [
-      "Protocols that depend on asset valuations",
-      "Pure messaging dApps",
-      "Social tokens only",
-      "Private chat"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Proof of Reserve most directly supports:",
-    "options": [
-      "Transparent backing for assets",
-      "NFT mint randomness",
-      "DAO voting gas refunds",
-      "Bridges without relayers"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Atom (OEV) helps protocols by:",
-    "options": [
-      "Capturing value around liquidations",
-      "Minting governance NFTs",
-      "Reducing L1 block time",
-      "Managing RPC nodes"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which one is a property of a good oracle?",
-    "options": [
-      "Accurate, timely, verifiable data",
-      "Secret data only",
-      "Unlimited gas use",
-      "Centralized control"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "RedStone is focused on:",
-    "options": [
-      "On-chain finance use cases",
-      "CeFi exchange order books only",
-      "Game graphics",
-      "Private messaging"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Why avoid hard-coding prices in smart contracts?",
-    "options": [
-      "Markets change; prices must update securely",
-      "Hard-coded is always faster",
-      "Auditors require it",
-      "Users prefer constants"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A liquidation bot uses oracle data to:",
-    "options": [
-      "Determine when positions are underwater",
-      "Mint NFTs",
-      "Vote in DAOs",
-      "Generate images"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Oracles help perps by:",
-    "options": [
-      "Feeding index/mark prices",
-      "Generating front-end HTML",
-      "Storing private keys",
-      "Sharding validators"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which is closest to 'modular oracle'?",
-    "options": [
-      "Composable pieces for sourcing, delivery, and consumption",
-      "Single monolith endpoint",
-      "GPU mining farms",
-      "Only HTTP feeds"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A 'pull' model means contracts:",
-    "options": [
-      "Obtain data on-demand when needed",
-      "Push data to UIs",
-      "Post to social media",
-      "Generate randomness"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A 'push' model means:",
-    "options": [
-      "Data is proactively delivered on-chain for consumers",
-      "Users push UI buttons",
-      "L2s push blocks to L1",
-      "Wallets push gas prices"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A reasonable fallback strategy for price feeds is to:",
-    "options": [
-      "Use multiple sources and last-known-good rules",
-      "Rely on one source only",
-      "Disable updates",
-      "Use user-submitted numbers"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "In RWAs, 'NAV' most closely means:",
-    "options": [
-      "Net Asset Value",
-      "Native Asset Volume",
-      "Network Active Validators",
-      "New Address Verification"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which RedStone component most closely fits RWA attestation?",
-    "options": [
-      "Proof of Reserve",
-      "Atom",
-      "AMM router",
-      "Bridge relayer"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which of these is NOT needed to verify oracle data on-chain?",
-    "options": [
-      "Twitter handle",
-      "Signature",
-      "Data payload",
-      "Signing public key"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A typical consumer contract will:",
-    "options": [
-      "Decode signed data and read a value by id",
-      "Render images",
-      "Send emails",
-      "Mint gas tokens"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Why is composability important for oracles?",
-    "options": [
-      "Different dApps and chains need different delivery models",
-      "To increase private key count",
-      "To remove audits",
-      "To break EVM rules"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "RedStone’s products can benefit:",
-    "options": [
-      "Lending, perps, RWAs, options, structured finance",
-      "Only NFT games",
-      "Only bridge UIs",
-      "Only wallets"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "A good oracle integration plan includes:",
-    "options": [
-      "Update conditions, fallback logic, and verification checks",
-      "Only front-end theming",
-      "Only DAO votes",
-      "Only gas sponsorship"
-    ],
-    "correct": 0,
-    "mode": "beginner"
-  },
-  {
-    "text": "Which statement best captures RedStone’s modular approach?",
-    "options": [
-      "Separate concerns for sourcing, signing, delivery, and consumption",
-      "Bundle everything into one opaque contract",
-      "Use only one data source",
-      "Off-chain only"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why would a protocol choose a push-model delivery from RedStone?",
-    "options": [
-      "They want proactive updates with minimal on-demand gas",
-      "They dislike on-chain verification",
-      "They require email alerts",
-      "They only run on L1 Bitcoin"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why would a protocol choose a pull-model delivery from RedStone?",
-    "options": [
-      "They prefer on-demand reads to save gas when idle",
-      "They cannot verify signatures",
-      "They only want front-end updates",
-      "It disables security"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which component helps verify the authenticity of oracle data?",
-    "options": [
-      "Digital signatures and public keys",
-      "Front-end CSS",
-      "Cookie banners",
-      "Server IP allowlists"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What role does deviation threshold play in an updater bot?",
-    "options": [
-      "Triggers updates only when price moves meaningfully",
-      "Blocks all updates",
-      "Changes RPC endpoints",
-      "Sets gas price to zero"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What does a heartbeat ensure for feeds?",
-    "options": [
-      "An upper bound on staleness even if prices don’t move",
-      "Permanent price freezing",
-      "Off-chain governance",
-      "Free gas"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Proof of Reserve evidence typically contains:",
-    "options": [
-      "Attestations about reserves and liabilities/backing",
-      "Only token logos",
-      "Usernames",
-      "Private keys"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A consumer reading multiple feeds should:",
-    "options": [
-      "Validate each payload/signature and handle per-feed freshness",
-      "Assume all are fresh",
-      "Skip signature checks to save gas",
-      "Put logic in the UI only"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What is 'OEV' in the context of Atom?",
-    "options": [
-      "Oracle Extractable Value around liquidations",
-      "Optimistic External Value",
-      "Off-chain Ethereum Volume",
-      "Oracle Edge Variance"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "How does Atom benefit lenders?",
-    "options": [
-      "Better liquidation outcomes via timely, fair pricing",
-      "Mint governance NFTs",
-      "Randomize user IDs",
-      "Shorten block time"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A typical RedStone consumer on EVM identifies feeds by:",
-    "options": [
-      "bytes32 identifiers",
-      "uint8 opcodes only",
-      "raw strings at runtime",
-      "account nonces"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why is gas-efficiency important for oracle delivery?",
-    "options": [
-      "To keep protocol operations sustainable",
-      "To enlarge blocks",
-      "To reduce decentralization",
-      "To increase UI frame rate"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What’s a safe fallback if a feed becomes stale?",
-    "options": [
-      "Use a backup source or circuit-breaker logic",
-      "Continue as-is indefinitely",
-      "Accept user input price",
-      "Turn the protocol off"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which of these best describes RedStone Bolt?",
-    "options": [
-      "A low-latency delivery path for fast-moving markets",
-      "A staking token",
-      "A bridge protocol",
-      "A block explorer"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "When integrating many feeds, a good practice is to:",
-    "options": [
-      "Batch verify signatures to amortize costs",
-      "Verify nothing",
-      "Hard-code prices",
-      "Only update UI"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A secure PoR workflow for tokenized assets requires:",
-    "options": [
-      "Trusted attestations and on-chain verification",
-      "Only tweets",
-      "Anonymous DMs",
-      "Flashloan prevention alone"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "On L2s/L3s, a modular oracle helps because:",
-    "options": [
-      "Different latency and fee profiles need tailored delivery",
-      "They always use PoW",
-      "They forbid signatures",
-      "They ban price feeds"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What is the risk of over-updating feeds?",
-    "options": [
-      "Wasting gas without added safety",
-      "Losing signatures",
-      "Hard for UIs to render",
-      "Breaking wallets"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What is the risk of under-updating feeds?",
-    "options": [
-      "Stale data causing incorrect protocol actions",
-      "Too many signatures",
-      "Too fast blocks",
-      "Color mismatches"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why track feed freshness per asset?",
-    "options": [
-      "Different assets move differently; one timer doesn’t fit all",
-      "All assets move identically",
-      "It saves storage permanently",
-      "It removes need for signatures"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What’s a safe way to roll out new feeds?",
-    "options": [
-      "Start with canaries and circuit-breakers",
-      "Push to prod without checks",
-      "Disable logs",
-      "Hide in UI"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "The main goal of Price Feeds is to provide:",
-    "options": [
-      "Accurate, timely, tamper-evident prices",
-      "Randomness",
-      "Key custody",
-      "DAO vote counting"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which statement about RedStone consumer contracts is true?",
-    "options": [
-      "They decode signed payloads and map ids to values",
-      "They call UI endpoints",
-      "They manage wallets",
-      "They mine blocks"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which is a valid reason to prefer pull model on some chains?",
-    "options": [
-      "Reduce base costs when you don’t need constant updates",
-      "Because signatures are unsafe",
-      "To disable auditing",
-      "To remove aggregation"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "How do aggregations improve robustness?",
-    "options": [
-      "They reduce single-source bias/manipulation",
-      "They increase MEV",
-      "They remove need for audits",
-      "They remove signatures"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why might a perps protocol need faster paths like Bolt?",
-    "options": [
-      "Mark price/Index price must react quickly",
-      "Because UI colors change",
-      "Because wallets demand it",
-      "To reduce block size"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which unit test is most critical for a price consumer?",
-    "options": [
-      "Verifies signature and id mapping",
-      "Checks CSS breakpoints",
-      "Counts UI clicks",
-      "Measures image compression"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A chain-specific adapter in a modular oracle helps:",
-    "options": [
-      "Fit delivery to the chain’s cost/latency model",
-      "Remove verification",
-      "Create private keys",
-      "Mint NFTs"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "In PoR, 'attestation freshness' matters because:",
-    "options": [
-      "Backing can change; stale proofs mislead users",
-      "It reduces UI calls",
-      "It mines new blocks",
-      "It compresses images"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A robust integration should test for:",
-    "options": [
-      "Staleness, signature validity, deviation triggers",
-      "Only gas price",
-      "Only UI color",
-      "Only node version"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A long-tail asset policy should include:",
-    "options": [
-      "Tight deviation thresholds and strict fallbacks",
-      "No thresholds",
-      "User DMs",
-      "Open redirects"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "When handling outages, a protocol can:",
-    "options": [
-      "Pause actions or switch to safer mode",
-      "Ignore and continue",
-      "Ask users to guess prices",
-      "Mint governance NFTs"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What is an SLA in oracle context?",
-    "options": [
-      "Service-level expectations for delivery and freshness",
-      "Smart Link Adapter",
-      "Secret Ledger Agreement",
-      "Signature List Archive"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A minimal consumer integration typically needs:",
-    "options": [
-      "Feed ids, verification keys, update logic",
-      "Front-end CSS",
-      "Mobile push notifications",
-      "Node private keys"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why record the last-good value?",
-    "options": [
-      "For safer behavior during temporary issues",
-      "For UI theming",
-      "For token airdrops",
-      "For NFT rarity"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why use multiple signers/aggregators?",
-    "options": [
-      "Increase resilience and decentralization",
-      "Increase CSS size",
-      "Reduce cryptography",
-      "Increase staleness"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which best describes a 'consumer base' contract?",
-    "options": [
-      "Reusable logic to parse/verify payloads",
-      "Front-end widget",
-      "Block explorer plugin",
-      "Wallet provider"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Which is a typical feed id format on EVM for RedStone?",
-    "options": [
-      "bytes32-encoded symbol id",
-      "uint8 index",
-      "ASCII string",
-      "Address nonce"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A durable oracle integration should keep track of:",
-    "options": [
-      "Timestamp, value, and signer set used",
-      "User email",
-      "Browser cookies",
-      "Wallet seed phrases"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What is the danger of using a single data source?",
-    "options": [
-      "Manipulation/outage from that source affects the feed",
-      "Cheaper gas",
-      "Better UX",
-      "Higher TPS"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Circuit-breakers in oracle usage are meant to:",
-    "options": [
-      "Halt risky actions on abnormal prices",
-      "Speed up UI CSS",
-      "Mint NFTs",
-      "Increase gas"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "If an asset trades 24/7, a heartbeat should be:",
-    "options": [
-      "Short enough to avoid staleness",
-      "Undefined",
-      "One year",
-      "Never triggered"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "If a protocol mostly needs daily prices, it should:",
-    "options": [
-      "Prefer slower cadence to save gas",
-      "Update several times per block",
-      "Disable verification",
-      "Use user input"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "When prices gap violently, a safe protocol might:",
-    "options": [
-      "Increase margin of safety, slow down risky actions",
-      "Ignore it",
-      "Airdrop tokens",
-      "Pause UI only"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A pull consumer often reads values via:",
-    "options": [
-      "A library / base contract decoding signed payloads",
-      "Hard-coded constants",
-      "Front-end DOM",
-      "RPC cookies"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Bolt-like paths are most relevant to:",
-    "options": [
-      "High-frequency strategies and perps",
-      "Weekly rebalancing only",
-      "Governance voting",
-      "NFT metadata refresh"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "RedStone can support RWAs by:",
-    "options": [
-      "Delivering reserve/NAV attestations on-chain",
-      "Minting fiat",
-      "Becoming a custodian",
-      "Replacing audits"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "A fair liquidation relies on:",
-    "options": [
-      "Accurate, timely feeds at trigger time",
-      "UI gradients",
-      "DAO turnout",
-      "Bridge signatures"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "Why keep integration abstracts versioned?",
-    "options": [
-      "Easier upgrades and audits",
-      "More colors",
-      "Less cryptography",
-      "Bigger blocks"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "What should a protocol monitor in prod?",
-    "options": [
-      "Feed freshness, deviations, signer set health",
-      "User cookies",
-      "UI clicks",
-      "Wallet seeds"
-    ],
-    "correct": 0,
-    "mode": "standard"
-  },
-  {
-    "text": "In RedStone EVM consumers, feed identifiers are typically:",
-    "options": [
-      "bytes32",
-      "string",
-      "address",
-      "uint8"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A consumer using RedStone will first:",
-    "options": [
-      "Verify the signature over the payload",
-      "Assume payload is trusted",
-      "Skip ids",
-      "Write to storage"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A robust decoding path should:",
-    "options": [
-      "Check schema/hash, signer, timestamp bounds",
-      "Skip timestamp",
-      "Trust calldata blindly",
-      "Rely on UI"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Push-model delivery on EVM typically involves:",
-    "options": [
-      "Transactions that publish values for later reads",
-      "Pulling from view functions only",
-      "Browser JS calls",
-      "Off-chain cron without txs"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Pull-model consumption often uses a helper like:",
-    "options": [
-      "Consumer base/library to parse values from calldata/tx msg",
-      "UI toolkit",
-      "Wallet connect",
-      "RPC cookies"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A deviation-based updater should compute:",
-    "options": [
-      "Absolute/relative change vs last value",
-      "Gas price histograms",
-      "UI color palettes",
-      "Wallet entropy"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A heartbeat checker enforces:",
-    "options": [
-      "Max age for last update regardless of deviation",
-      "Min block time",
-      "Front-end cache",
-      "DNS TTL"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Staleness is measured from:",
-    "options": [
-      "Timestamp in the signed payload",
-      "Block timestamp only",
-      "Node clock drift",
-      "UI clock"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To batch-verify multiple feeds you can:",
-    "options": [
-      "Aggregate signatures or loop efficiently over payloads",
-      "Skip verification",
-      "Use cookies",
-      "Cache DOM"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "On-chain value scaling is needed because:",
-    "options": [
-      "Prices use fixed decimals; contracts scale them to integer units",
-      "All values are floats natively",
-      "Solidity stores strings",
-      "JS needs them"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "When mixing sources, an aggregator should:",
-    "options": [
-      "Filter outliers and compute a robust statistic",
-      "Pick first value",
-      "Use last tweet",
-      "Randomize"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "OEV capture in Atom needs:",
-    "options": [
-      "Timely price and fair liquidation logic",
-      "Long block times",
-      "Admin keys only",
-      "Off-chain emails"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A secure PoR design should include:",
-    "options": [
-      "Signer rotation, timestamped attestations, on-chain checks",
-      "Only PDFs",
-      "No signatures",
-      "Static web pages"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To avoid re-entrancy on liquidation:",
-    "options": [
-      "Use checks-effects-interactions and guards",
-      "Skip checks",
-      "Call external first",
-      "Use tx.origin"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A gas-efficient consumer avoids:",
-    "options": [
-      "Unnecessary storage writes",
-      "Static linking",
-      "Internal functions",
-      "View calls"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "RedStone consumers on EVM often expose a helper to:",
-    "options": [
-      "Read a value by bytes32 id from the last message",
-      "Draw charts",
-      "Mint NFTs",
-      "Set UI themes"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "If a payload signer set changes, contracts should:",
-    "options": [
-      "Validate against the current allowed signers",
-      "Ignore change",
-      "Disable checks",
-      "Use any address"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To prevent replay with old payloads:",
-    "options": [
-      "Check timestamp/window and unique nonces if applicable",
-      "Ignore timestamps",
-      "Trust UI time",
-      "Use chain id"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Which test is critical for circuit-breakers?",
-    "options": [
-      "Freeze actions when price deviates beyond bounds",
-      "Increase TVL automatically",
-      "Disable logs",
-      "Upgrade proxy silently"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "On EVM, price values are commonly encoded as:",
-    "options": [
-      "Integers with decimals (e.g., 8 or 18) implied",
-      "IEEE 754 float",
-      "UTF-8",
-      "bool"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A multi-feed consumer should store:",
-    "options": [
-      "Per-feed last timestamp and last good value",
-      "Only one global timestamp",
-      "Only decimals",
-      "Only signer address"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A chain adapter for an L2 with high fees should:",
-    "options": [
-      "Favor pull reads unless frequent updates are essential",
-      "Push every block",
-      "Disable signatures",
-      "Use UI polling"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Bolt-like path is appropriate when:",
-    "options": [
-      "Latency requirements are sub-second to seconds",
-      "Daily cadence is enough",
-      "Only governance occurs",
-      "Only NFT minting"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "When feeds are illiquid or spiky, robust stats like:",
-    "options": [
-      "Median/trimmed mean help reduce outliers",
-      "First value wins",
-      "Random pick",
-      "Twitter likes"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A consumer must map:",
-    "options": [
-      "Feed id -> value and timestamp",
-      "User id -> NFT id",
-      "RPC -> wallet",
-      "Key -> cookie"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Signature verification in Solidity often uses:",
-    "options": [
-      "EIP-191 / ECDSA secp256k1 recovery",
-      "RSA 4096",
-      "EdDSA only",
-      "No crypto"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "If an update bot fails mid-volatile market, protocol should:",
-    "options": [
-      "Degrade safely or pause sensitive actions",
-      "Continue liquidations blindly",
-      "Cease using timestamps",
-      "Use user input"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "How to keep upgradeability safe in consumers?",
-    "options": [
-      "Use proxies with admin safeguards and audits",
-      "Unrestricted selfdestruct",
-      "No access controls",
-      "Opaque bytecode"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Which storage layout keeps gas low?",
-    "options": [
-      "Packed small types and minimal writes",
-      "Scattered large structs",
-      "Strings everywhere",
-      "Dynamic arrays only"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "For PoR, cross-checking off-chain reports with on-chain proofs:",
-    "options": [
-      "Increases assurance of real backing",
-      "Is irrelevant",
-      "Breaks EVM",
-      "Removes signatures"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To reduce griefing in push delivery:",
-    "options": [
-      "Restrict who can push and enforce checks",
-      "Allow everyone to push",
-      "Rely on UI",
-      "Disable logs"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Feed decimals mismatch between dApp and oracle leads to:",
-    "options": [
-      "Scaling/rounding errors unless handled",
-      "No effect",
-      "More gas refunds",
-      "UI color changes"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A good incident runbook includes:",
-    "options": [
-      "Rollbacks, circuit-breakers, comms, tests",
-      "Only memes",
-      "Only UI themes",
-      "Nothing"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To prevent signer key compromise impact:",
-    "options": [
-      "Use multi-sig/multi-signer and rotation",
-      "One admin EOA forever",
-      "Public keys in UI",
-      "Hard-coded strings"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Time-weighted averages (TWAP) are useful to:",
-    "options": [
-      "Smooth short-term volatility for decisions",
-      "Increase latency always",
-      "Reduce signatures",
-      "Store images"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "For perps funding calculations, feeds often need:",
-    "options": [
-      "Index price and periodicity",
-      "Random seeds",
-      "NFT rarity",
-      "Usernames"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A consumer that caches the last payload should:",
-    "options": [
-      "Validate freshness every use",
-      "Assume cache is eternal",
-      "Skip checks",
-      "Disable signatures"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "When changing signer set, also update:",
-    "options": [
-      "Off-chain bots and on-chain allowlists",
-      "Front-end CSS only",
-      "RPC domains",
-      "Wallet logos"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To integrate a new asset safely you should:",
-    "options": [
-      "Simulate extreme moves and test fallbacks",
-      "Skip tests",
-      "Only deploy to mainnet",
-      "Ask users"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Why prefer immutable config for critical ids?",
-    "options": [
-      "Prevents accidental changes after deploy",
-      "Saves UI clicks",
-      "Increases decimals",
-      "Removes audits"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A consumer library should emit events when:",
-    "options": [
-      "Updates applied, fallbacks triggered, circuit-breakers tripped",
-      "UI color changes",
-      "Wallet connects",
-      "Git push"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "For fee optimization on L2, you might:",
-    "options": [
-      "Batch updates and compress payloads",
-      "Ignore fees",
-      "Increase storage arbitrarily",
-      "Use strings for numbers"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "In audits, reviewers will check:",
-    "options": [
-      "Signature logic, bounds, integer math, re-entrancy",
-      "UI theming",
-      "Repo stars",
-      "Meme quality"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A 'price anomaly' detector can:",
-    "options": [
-      "Compare against reference feeds and trigger safeties",
-      "Increase TVL automatically",
-      "Shorten blocks",
-      "Mint NFTs"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A safe liquidation bot should:",
-    "options": [
-      "Avoid sandwichable tx patterns where possible",
-      "Skip gas price control",
-      "Use tx.origin",
-      "Post to UI"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Data payload chaining means:",
-    "options": [
-      "Including multiple feed values/messages for one tx",
-      "Chaining wallets",
-      "Chaining UIs",
-      "Chaining RPCs"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "To verify payload domain separation:",
-    "options": [
-      "Include chain id/app id in signed message",
-      "Skip domain",
-      "Use block hash",
-      "Use UI theme"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "Which on-chain check helps avoid replay across chains?",
-    "options": [
-      "Check domain/chain id in signed data",
-      "Check UI version",
-      "Check CSS",
-      "Random color"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "A clean separation between aggregator signer and pusher helps:",
-    "options": [
-      "Limit key blast radius and roles",
-      "Increase latency",
-      "Remove audits",
-      "Centralize control"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  },
-  {
-    "text": "End-to-end tests for oracle delivery should include:",
-    "options": [
-      "Signer rotation, stale feeds, deviation spikes, circuit-breakers",
-      "Only UI clicks",
-      "Only comments",
-      "Only mainnet"
-    ],
-    "correct": 0,
-    "mode": "expert"
-  }
-]
+# Telegram Quiz Bot — stable & admin-only (PTB 21, Python 3.13 friendly)
+from __future__ import annotations
+
+import os, json, time, random, math, html, logging, threading, uuid, asyncio, signal
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Set, Tuple
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
+from telegram.error import RetryAfter, TimedOut, NetworkError, BadRequest
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, MessageHandler,
+    ContextTypes, filters
+)
+
+# ---------- LOGGING ----------
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
+log = logging.getLogger("quizbot")
+
+# ---------- FIXED SETTINGS ----------
+QUESTION_TIME = 10           # seconds per question
+DELAY_NEXT    = 5            # seconds between questions
+TICK_SECONDS  = 1.0          # countdown update interval (seconds)
+POINTS_MAX    = 100
+QUESTIONS_FILE = "questions.json"
+
+ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
+MODES = ("beginner", "standard", "expert")
+ADMINS_ONLY = True           # only admins can /menu, /startquiz, /stop, /reset in groups
+
+# Build/instance info (handy for debugging and multi-replica checks)
+BUILD_ID = os.getenv("BUILD_ID", "dev")
+INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
+
+def esc(s: str) -> str:
+    return html.escape(str(s), quote=True)
+
+# ---------- SAFE TELEGRAM CALL (auto retry/backoff) ----------
+async def _tg(desc: str, coro, *args, **kwargs):
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            return await coro(*args, **kwargs)
+        except RetryAfter as e:
+            wait = float(getattr(e, "retry_after", 1.0)) + 0.5
+            if attempts >= 3:
+                log.warning("%s: RetryAfter %.2fs, giving up", desc, wait)
+                return None
+            log.warning("%s: RetryAfter %.2fs (attempt %d/3)", desc, wait, attempts)
+            await asyncio.sleep(wait)
+        except (TimedOut, NetworkError) as e:
+            wait = min(2.0 * attempts, 6.0)
+            if attempts >= 3:
+                log.warning("%s: %s, giving up", desc, type(e).__name__)
+                return None
+            log.warning("%s: %s; backoff %.2fs (attempt %d/3)", desc, type(e).__name__, wait, attempts)
+            await asyncio.sleep(wait)
+        except BadRequest as e:
+            log.debug("%s: BadRequest ignored: %s", desc, e)
+            return None
+        except Exception as e:
+            log.error("%s: unexpected %s: %s", desc, type(e).__name__, e)
+            return None
+
+# ---------- FIRE & FORGET ----------
+def fire_and_forget(coro):
+    async def _run():
+        try:
+            await coro
+        except Exception:
+            pass
+    asyncio.create_task(_run())
+
+# ---------- DATA ----------
+@dataclass
+class QItem:
+    text: str
+    options: List[str]
+    correct: int
+    mode: str
+
+@dataclass
+class AnswerRec:
+    choice: int
+    is_correct: bool
+    elapsed: float
+    points: int
+
+@dataclass
+class GameState:
+    chat_id: int
+    started_by: int
+    questions: List[QItem]
+    limit: int
+    mode: str
+
+    q_index: int = 0
+    q_msg_id: Optional[int] = None
+    q_start_ts: Optional[float] = None
+    q_end_ts: Optional[float] = None      # canonical question end timestamp
+    locked: bool = False
+
+    per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
+    answered_now: Dict[int, Set[int]] = field(default_factory=dict)
+
+    players: Dict[int, str] = field(default_factory=dict)
+    totals: Dict[int, int] = field(default_factory=dict)
+    corrects: Dict[int, int] = field(default_factory=dict)
+
+GAMES: Dict[int, GameState] = {}
+LAST: Dict[int, dict] = {}
+SETTINGS: Dict[int, Dict[str, int | str]] = {}
+
+# ---------- HELPERS ----------
+def points(elapsed: float) -> int:
+    if elapsed >= QUESTION_TIME:
+        return 0
+    return int(round((max(0.0, QUESTION_TIME - elapsed) / QUESTION_TIME) * POINTS_MAX))
+
+def answer_kb(q: QItem, qnum: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton(opt, callback_data=f"ans:{qnum}:{i}")]
+                                 for i, opt in enumerate(q.options)])
+
+def fmt_question(qnum: int, total: int, q: QItem, left: Optional[int] = None, locked_count: Optional[int] = None) -> str:
+    s = f"❓ <b>Question {qnum}/{total}</b>\n{esc(q.text)}"
+    if left is not None: s += f"\n\n⏱ <b>{int(left)}s left</b>"
+    if locked_count is not None: s += f"\n🗳 <b>Answers locked:</b> {locked_count}"
+    return s
+
+def load_questions() -> List[QItem]:
+    with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    out: List[QItem] = []
+    for i, q in enumerate(data, start=1):
+        if not all(k in q for k in ("text","options","correct","mode")):
+            raise ValueError(f"Q{i} missing fields")
+        if q["mode"] not in MODES:
+            raise ValueError(f"Q{i} invalid mode {q['mode']}")
+        if len(q["options"]) != 4:
+            raise ValueError(f"Q{i} must have 4 options")
+        c = int(q["correct"])
+        if not 0 <= c < 4:
+            raise ValueError(f"Q{i} invalid correct index {c}")
+        out.append(QItem(q["text"], list(q["options"]), c, q["mode"]))
+    return out
+
+def filter_by_mode(all_qs: List[QItem], mode: str) -> List[QItem]:
+    return [q for q in all_qs if q.mode == mode]
+
+def shuffle_qs(qs: List[QItem]) -> List[QItem]:
+    qs = qs.copy(); random.shuffle(qs)
+    out: List[QItem] = []
+    for q in qs:
+        pairs = list(enumerate(q.options)); random.shuffle(pairs)
+        new_opts = [t for _, t in pairs]
+        new_correct = next(i for i, (orig, _) in enumerate(pairs) if orig == q.correct)
+        out.append(QItem(q.text, new_opts, new_correct, q.mode))
+    return out
+
+def compute_totals(st: GameState) -> Tuple[Dict[int, int], Dict[int, int]]:
+    return st.totals, st.corrects
+
+def cancel_jobs_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    try:
+        for job in context.job_queue.jobs():
+            name = getattr(job, "name", "") or ""
+            if name.startswith(f"tick:{chat_id}:") or name.startswith(f"close:{chat_id}:") or name.startswith(f"gap:{chat_id}:"):
+                job.schedule_removal()
+    except Exception as e:
+        log.warning("job cleanup error: %s", e)
+
+# ---------- JOBS ----------
+async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
+    d = context.job.data
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
+    st = GAMES.get(chat_id)
+    if not st or st.q_index != qidx or st.q_end_ts is None:
+        context.job.schedule_removal(); return
+
+    left = max(0, int(math.ceil(st.q_end_ts - time.time())))
+    if left <= 0:
+        context.job.schedule_removal(); return
+
+    # Edit text only (leave keyboard unchanged) to reduce payload
+    fire_and_forget(_tg("tick.edit", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=msg_id,
+        text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], left,
+                          len(st.per_q_answers.get(st.q_index, {}))),
+        parse_mode=ParseMode.HTML
+    ))
+
+async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
+    d = context.job.data
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]
+    st = GAMES.get(chat_id)
+    if not st: context.job.schedule_removal(); return
+    left = max(0, int(math.ceil(end_ts - time.time())))
+    if left <= 0:
+        context.job.schedule_removal()
+        fire_and_forget(_tg("gap.final", context.bot.edit_message_text,
+            chat_id=chat_id, message_id=msg_id, text="🚀 Starting next question…"
+        ))
+        return
+    fire_and_forget(_tg("gap.tick", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=msg_id, text=f"⏭️ Next question in {left}s…"
+    ))
+
+async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qidx: int):
+    q = st.questions[qidx]
+    per = st.per_q_answers.get(qidx, {})
+    scorers = sorted(((uid, rec.points) for uid, rec in per.items() if rec.is_correct),
+                     key=lambda t:t[1], reverse=True)
+    scores, corrects = compute_totals(st)
+    ranking = sorted(scores.items(), key=lambda x:x[1], reverse=True)
+
+    lines = [f"📘 <b>Q{qidx+1} Result</b>", f"✅ Correct answer: <b>{esc(q.options[q.correct])}</b>"]
+    if scorers:
+        names = [f"{esc(st.players.get(uid, str(uid)))} (+{pts})" for uid, pts in scorers[:5]]
+        extra = len(scorers) - 5
+        lines.append("🏎️ Fastest correct: " + ", ".join(names) + (f" … +{extra} more" if extra > 0 else ""))
+    else:
+        lines.append("😶 No correct answers this round.")
+
+    if ranking:
+        lines.append("\n🏁 <b>Current Leaderboard</b> (Top 5)")
+        for rank, (uid, total) in enumerate(ranking[:5], start=1):
+            name = esc(st.players.get(uid, str(uid)))
+            corr = corrects.get(uid, 0)
+            medal = ("🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}.")
+            lines.append(f"{medal} {name} — {corr} correct — {total} pts")
+
+    await _tg("recap.send", context.bot.send_message, chat_id=st.chat_id,
+              text="\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def close_question(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.data["chat_id"]
+    st = GAMES.get(chat_id)
+    if not st or st.q_end_ts is None:
+        return
+
+    now = time.time()
+    # Safety: if we arrived early (scheduler jitter), try again at the exact deadline
+    if now < st.q_end_ts - 0.15:  # tiny guard margin
+        when = max(0.0, st.q_end_ts - now)
+        context.job_queue.run_once(close_question, when=when, data={"chat_id": chat_id})
+        return
+
+    if st.locked:  # already closed
+        return
+    st.locked = True
+
+    # Freeze question message (non-blocking); now it's safe to remove keyboard
+    fire_and_forget(_tg("close.freeze", context.bot.edit_message_text,
+        chat_id=chat_id, message_id=st.q_msg_id,
+        text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
+                          len(st.per_q_answers.get(st.q_index, {}))),
+        reply_markup=None, parse_mode=ParseMode.HTML
+    ))
+
+    # Recap (non-blocking)
+    fire_and_forget(post_round_recap(context, st, st.q_index))
+
+    # Free memory for this question immediately
+    st.per_q_answers.pop(st.q_index, None)
+    st.answered_now.pop(st.q_index, None)
+
+    # Gap + next question: schedule next step NOW so the timeline never stalls
+    gap_end = time.time() + DELAY_NEXT
+
+    async def _gap_bundle():
+        m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id,
+                      text=f"⏭️ Next question in {int(math.ceil(DELAY_NEXT))}s…")
+        if m and getattr(m, "message_id", None):
+            context.job_queue.run_repeating(
+                gap_tick,
+                interval=max(1.0, TICK_SECONDS),
+                first=max(1.0, TICK_SECONDS),
+                data={"chat_id": chat_id, "msg_id": m.message_id, "end_ts": gap_end},
+                name=f"gap:{chat_id}:{st.q_index}",
+            )
+    fire_and_forget(_gap_bundle())
+
+    context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
+
+async def next_question(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = context.job.data["chat_id"]
+    st = GAMES.get(chat_id)
+    if not st: return
+    st.q_index += 1
+    if st.q_index >= st.limit:
+        await finish_quiz(context, st); return
+    await ask_question(context, st)
+
+async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
+    q = st.questions[st.q_index]
+    m = await _tg("ask.send", context.bot.send_message, chat_id=st.chat_id,
+                  text=fmt_question(st.q_index+1, st.limit, q, QUESTION_TIME, 0),
+                  reply_markup=answer_kb(q, st.q_index+1), parse_mode=ParseMode.HTML)
+    if not m:
+        log.error("ask_question: failed to send; ending session")
+        await finish_quiz(context, st); return
+
+    st.q_msg_id = m.message_id
+    st.q_start_ts = time.time()
+    st.q_end_ts   = st.q_start_ts + QUESTION_TIME   # set canonical end time
+    st.locked = False
+    st.answered_now[st.q_index] = set()
+
+    # one ticker, one closer (use q_end_ts everywhere)
+    context.job_queue.run_repeating(
+        tick_edit,
+        interval=TICK_SECONDS,
+        first=TICK_SECONDS,
+        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "qidx": st.q_index},
+        name=f"tick:{st.chat_id}:{st.q_index}",
+    )
+    context.job_queue.run_once(
+        close_question,
+        when=QUESTION_TIME,  # scheduled, but we'll guard against early fire
+        data={"chat_id": st.chat_id},
+        name=f"close:{st.chat_id}:{st.q_index}",
+    )
+
+# ---------- ADMIN ----------
+async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
+    try:
+        m = await context.bot.get_chat_member(chat_id, user_id)
+        return m.status in ("administrator", "creator")
+    except Exception:
+        return False
+
+# ---------- COMMANDS ----------
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cfg = SETTINGS.get(update.effective_chat.id, {})
+    mode = cfg.get("mode"); length = cfg.get("length")
+    await update.message.reply_text(
+        "✨ <b>Quiz Bot</b>\n────────────\n"
+        "Step 1: /menu — choose <b>Mode</b>\n"
+        "Step 2: choose <b>How many questions</b>\n"
+        "Then: /startquiz — start (admin-only in groups)\n"
+        "Or tap ▶️ Start in the menu after choosing length.\n\n"
+        "During play: recap + leaderboard each round.\n"
+        "Tools: /leaderboard • /answer • /stop • /reset • /ping\n\n"
+        f"Current: Mode={esc(mode) if mode else '—'} • Length={esc(length) if length else '—'}",
+        parse_mode=ParseMode.HTML
+    )
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Commands:\n/start • /help • /menu • /startquiz\n/leaderboard • /answer • /stop • /reset\n/ping",
+        parse_mode=ParseMode.HTML
+    )
+
+async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Anyone can ping in DM; admins only in groups
+    if update.effective_chat.type != "private":
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            return
+    await update.message.reply_text(f"pong from {INSTANCE_ID}")
+
+async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            await update.message.reply_text("Only group admins can configure the quiz here."); return
+    rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
+             InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
+             InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
+    await update.message.reply_text("<b>Step 1/2</b>: Choose a <b>Mode</b>.",
+                                    reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
+
+async def _send_length_menu(update_or_query, context):
+    rows = [[InlineKeyboardButton("10", callback_data="cfg:len:10"),
+             InlineKeyboardButton("20", callback_data="cfg:len:20"),
+             InlineKeyboardButton("30", callback_data="cfg:len:30")],
+            [InlineKeyboardButton("40", callback_data="cfg:len:40"),
+             InlineKeyboardButton("50", callback_data="cfg:len:50")]]
+    chat_id = update_or_query.effective_chat.id if isinstance(update_or_query, Update) else update_or_query.message.chat.id
+    await _tg("length.send", context.bot.send_message, chat_id=chat_id,
+              text="<b>Step 2/2</b>: How many questions will be held?",
+              reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
+
+async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    data = q.data
+    if not data.startswith("cfg:"): return
+    chat_id = q.message.chat.id
+    if q.message.chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, chat_id, q.from_user.id):
+            try: await q.answer("Only group admins can change quiz settings here.", show_alert=True)
+            except Exception: pass
+            return
+    _, kind, val = data.split(":")
+    GAMES.pop(chat_id, None); LAST.pop(chat_id, None)
+    if kind == "mode":
+        if val not in MODES: await q.edit_message_text("Invalid mode."); return
+        SETTINGS.setdefault(chat_id, {})["mode"] = val
+        try: await q.edit_message_text(f"Mode set to <b>{esc(val.title())}</b> ✅", parse_mode=ParseMode.HTML)
+        except Exception: pass
+        await _send_length_menu(update, context); return
+    if kind == "len":
+        try: length=int(val)
+        except: await q.edit_message_text("Invalid length."); return
+        if length not in ALLOWED_SESSION_SIZES: await q.edit_message_text("Invalid length."); return
+        SETTINGS.setdefault(chat_id, {})["length"]=length
+        mode = SETTINGS.get(chat_id, {}).get("mode")
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Start quiz", callback_data=f"start:{mode}:{length}")]]) if mode in MODES else None
+        await q.edit_message_text(f"Length set to <b>{length}</b> ✅\nUse /startquiz to begin, or tap ▶️ Start.", parse_mode=ParseMode.HTML)
+        if kb:
+            await _tg("start.button", context.bot.send_message, chat_id=chat_id,
+                      text=f"Ready to start <b>{esc(str(mode).title())}</b> • {length} questions?",
+                      reply_markup=kb, parse_mode=ParseMode.HTML)
+
+async def start_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    try:
+        _, mode, length_s = q.data.split(":"); length = int(length_s)
+    except Exception: return
+    chat_id = q.message.chat.id
+    if q.message.chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, chat_id, q.from_user.id):
+            try: await q.answer("Only group admins can start the quiz here.", show_alert=True)
+            except Exception: pass
+            return
+    await do_startquiz(context, chat_id, q.from_user.id, mode, length)
+
+async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id; user=update.effective_user
+    if update.effective_chat.type!="private":
+        if not await is_admin(context, chat_id, user.id):
+            await update.message.reply_text("Only group admins can start a quiz."); return
+    mode=None; length=None
+    if context.args and len(context.args)>=2:
+        mode = str(context.args[0]).lower()
+        try: length = int(context.args[1])
+        except: length = None
+    if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
+        cfg=SETTINGS.get(chat_id,{}); mode = mode or cfg.get("mode"); length = length or cfg.get("length")
+    if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
+        await update.message.reply_text(
+            "Please run /menu and complete both steps first, or use:\n"
+            "/startquiz <mode> <length>\nExample: /startquiz beginner 10"
+        )
+        return
+    await do_startquiz(context, chat_id, user.id, mode, int(length))
+
+async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter_user_id: int, mode: str, length: int):
+    pool = filter_by_mode(load_questions(), str(mode))
+    if len(pool) < int(length):
+        await _tg("start.notenough", context.bot.send_message, chat_id=chat_id,
+                  text=f"Not enough questions in <b>{esc(mode)}</b> (need {length}).", parse_mode=ParseMode.HTML)
+        return
+    qs = shuffle_qs(pool)[: int(length)]
+    st = GameState(chat_id=chat_id, started_by=starter_user_id, questions=qs, limit=int(length), mode=str(mode))
+    GAMES[chat_id]=st; LAST.pop(chat_id, None)
+    await _tg("intro.send", context.bot.send_message, chat_id=chat_id,
+              text=(f"🎯 <b>{esc(str(mode).title())}</b> mode • {length} questions\n"
+                    f"⏱ {QUESTION_TIME}s per question • Next question in {DELAY_NEXT}s after each."),
+              parse_mode=ParseMode.HTML)
+    await ask_question(context, st)
+
+# ---------- ANSWERS / RESULTS ----------
+async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q=update.callback_query; user=q.from_user; chat_id=q.message.chat.id
+    try:
+        _, qnum_str, opt_str = q.data.split(":"); qnum=int(qnum_str); opt=int(opt_str)
+    except Exception: return
+    st=GAMES.get(chat_id)
+    if not st:
+        fire_and_forget(q.answer("No active quiz here.", show_alert=False)); return
+    if st.q_index+1!=qnum:
+        fire_and_forget(q.answer("This question is already closed.", show_alert=False)); return
+    if st.locked or st.q_start_ts is None:
+        fire_and_forget(q.answer("Time is up!", show_alert=False)); return
+
+    st.answered_now.setdefault(st.q_index,set())
+    if user.id in st.answered_now[st.q_index]:
+        fire_and_forget(q.answer("Only your first answer counts.", show_alert=False)); return
+    st.answered_now[st.q_index].add(user.id)
+
+    st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
+    st.per_q_answers.setdefault(st.q_index,{})
+    if user.id in st.per_q_answers[st.q_index]:
+        fire_and_forget(q.answer("Only your first answer counts.", show_alert=False)); return
+
+    elapsed=max(0.0, time.time()-st.q_start_ts); is_correct=(opt==st.questions[st.q_index].correct)
+    pts=points(elapsed) if is_correct else 0
+    st.per_q_answers[st.q_index][user.id]=AnswerRec(opt,is_correct,elapsed,pts)
+    if is_correct: st.corrects[user.id]=st.corrects.get(user.id,0)+1
+    st.totals[user.id]=st.totals.get(user.id,0)+pts
+
+    fire_and_forget(q.answer(
+        f"You chose: {st.questions[st.q_index].options[opt]}\n" +
+        ("✅ Correct" if is_correct else "❌ Locked"),
+        show_alert=False
+    ))
+
+async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id; st=GAMES.get(chat_id)
+    if st:
+        scores,corrects=compute_totals(st); source=f"Current session — {st.q_index+1}/{st.limit} asked"; name_of=st.players
+    else:
+        snap=LAST.get(chat_id)
+        if not snap: await update.message.reply_text("No session found here yet."); return
+        scores=snap["scores"]; corrects=snap["corrects"]; source=f"Last finished — {snap['limit']} questions"; name_of=snap["players"]
+    if not scores: await update.message.reply_text("No participants yet."); return
+    ranking=sorted(scores.items(), key=lambda x:x[1], reverse=True)
+    lines=[f"🏁 <b>Leaderboard</b> ({esc(source)})"]
+    for rank,(uid,pts_) in enumerate(ranking[:10],start=1):
+        name=esc(name_of.get(uid,str(uid))); corr=corrects.get(uid,0); medal=("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
+        lines.append(f"{medal} {name} — {corr} correct — {pts_} pts")
+    lines.append("\nGG! Thanks for participating 🎉")
+    await _tg("leaderboard.send", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id; snap=LAST.get(chat_id)
+    if not snap: await update.message.reply_text("No finished quiz found here yet."); return
+    qs: List[QItem]=snap["questions"]
+    lines=["📘 <b>All Correct Answers</b>"]
+    for i,q in enumerate(qs, start=1):
+        lines.append(f"Q{i}: <b>{esc(q.options[q.correct])}</b>")
+        if len("\n".join(lines))>3500:
+            await _tg("answer.chunk", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML); lines=[]
+    if lines: await _tg("answer.final", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
+    cancel_jobs_for_chat(context, st.chat_id)
+    scores,corrects=compute_totals(st)
+    if not scores:
+        await _tg("finish.empty", context.bot.send_message, chat_id=st.chat_id, text="Quiz ended. No participants 😅")
+        GAMES.pop(st.chat_id, None); return
+    ranking=sorted(scores.items(), key=lambda x:x[1], reverse=True)
+    top_uid, top_pts = ranking[0]; top_name=esc(st.players.get(top_uid,str(top_uid)))
+    await _tg("finish.win", context.bot.send_message, chat_id=st.chat_id, text=f"🎉 Congrats, <b>{top_name}</b>! You topped the quiz with <b>{top_pts} pts</b>!", parse_mode=ParseMode.HTML)
+    lines=["🏁 <b>Final Results</b> — Top 10"]
+    for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
+        name=esc(st.players.get(uid,str(uid))); corr=corrects.get(uid,0); medal=("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
+        lines.append(f"{medal} {name} — {corr}/{st.limit} correct — {pts_} pts")
+    lines.append("\nUse /leaderboard anytime. Use /answer for all correct answers. GG! 🎉")
+    await _tg("finish.board", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+    LAST[st.chat_id]={"questions":st.questions,"limit":st.limit,"scores":scores,"corrects":corrects,"players":st.players,"mode":st.mode}
+    GAMES.pop(st.chat_id, None)
+
+async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user=update.effective_user; here_id=update.effective_chat.id
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, here_id, user.id):
+            await update.message.reply_text("Only group admins can stop the quiz here."); return
+    st=GAMES.get(here_id)
+    if not st:
+        await update.message.reply_text("No active quiz to stop."); return
+    st.limit=st.q_index+1; st.locked=True
+    await update.message.reply_text("Stopping quiz…"); cancel_jobs_for_chat(context, st.chat_id); await finish_quiz(context, st)
+
+async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id=update.effective_chat.id
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, chat_id, update.effective_user.id):
+            await update.message.reply_text("Only group admins can reset this chat."); return
+    GAMES.pop(chat_id, None); LAST.pop(chat_id, None); SETTINGS.pop(chat_id, None); cancel_jobs_for_chat(context, chat_id)
+    await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
+
+# Unknown commands fall back to help (prevents confusion in groups)
+async def on_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and update.message.text and update.message.text.startswith("/"):
+        await update.message.reply_text("Unknown command. Try /help")
+
+# ---------- KEEP-ALIVE (for Web service) ----------
+def start_keepalive_if_needed():
+    port_env = os.getenv("PORT")
+    if not port_env:
+        log.info("No $PORT detected — assuming Worker service.")
+        return
+    try:
+        port = int(port_env)
+    except Exception:
+        log.warning("Invalid PORT=%r; skipping keep-alive", port_env)
+        return
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8")
+            self.end_headers(); self.wfile.write(b"ok")
+        def log_message(self, *a, **k): return
+    threading.Thread(target=lambda: HTTPServer(("0.0.0.0", port), H).serve_forever(), daemon=True).start()
+    log.info("Keep-alive HTTP listening on 0.0.0.0:%d", port)
+
+# ---------- ERROR ----------
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    log.exception("Unhandled error: %s", context.error)
+
+# ---------- BUILD ----------
+def build_app() -> Application:
+    token = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+    if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
+
+    builder = Application.builder().token(token)
+    # Optional: enable AIORateLimiter if installed
+    try:
+        from telegram.ext import AIORateLimiter
+        builder = builder.rate_limiter(AIORateLimiter())
+        log.info("AIORateLimiter enabled.")
+    except Exception as e:
+        log.info("Rate limiter not available; continuing without it: %s", e)
+
+    app = builder.build()
+    app.add_handler(CommandHandler("start",       cmd_start))
+    app.add_handler(CommandHandler("help",        cmd_help))
+    app.add_handler(CommandHandler("menu",        cmd_menu))
+    app.add_handler(CallbackQueryHandler(cfg_click, pattern=r"^cfg:"))
+    app.add_handler(CallbackQueryHandler(start_click, pattern=r"^start:(beginner|standard|expert):\d+$"))
+    app.add_handler(CommandHandler("startquiz",   cmd_startquiz))
+    app.add_handler(CommandHandler("leaderboard", cmd_leaderboard))
+    app.add_handler(CommandHandler("answer",      cmd_answer))
+    app.add_handler(CommandHandler("stopquiz",    cmd_stop))
+    app.add_handler(CommandHandler("stop",        cmd_stop))
+    app.add_handler(CommandHandler("cancel",      cmd_stop))
+    app.add_handler(CommandHandler("reset",       cmd_reset))
+    app.add_handler(CommandHandler("ping",        cmd_ping))
+    app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
+    app.add_handler(MessageHandler(filters.COMMAND, on_unknown))
+    app.add_error_handler(on_error)
+    return app
+
+# ---------- MANUAL STARTUP (Python 3.13 safe) ----------
+async def _main():
+    start_keepalive_if_needed()
+    app = build_app()
+
+    # Ensure no old webhook blocks polling
+    try:
+        await app.bot.delete_webhook(drop_pending_updates=True)
+        me = await app.bot.get_me()
+        log.info("Authorized as @%s (id=%s)", me.username, me.id)
+    except Exception as e:
+        log.warning("Startup checks warning: %s", e)
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(
+        allowed_updates=["message", "callback_query"],
+        drop_pending_updates=True,
+    )
+    log.info("Polling started.")
+
+    # Idle until SIGINT/SIGTERM
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop.set)
+        except NotImplementedError:
+            pass
+    await stop.wait()
+
+    # graceful shutdown
+    try:
+        await app.updater.stop()
+    except Exception:
+        pass
+    await app.stop()
+    await app.shutdown()
+
+if __name__ == "__main__":
+    log.info("Starting quiz bot…")
+    asyncio.run(_main())
