@@ -1,3 +1,4 @@
+[
   { "text": "What is Redstone DeFi?", "options": ["DeFi", "EXMP", "Example C", "Example D"], "correct": 0, "mode": "beginner" },
   { "text": "What does DeFi stand for?", "options": ["Decentralized Finance", "Defined Finance", "Default Finance", "Deferred Finance"], "correct": 0, "mode": "beginner" },
   { "text": "What is Bitcoin's ticker?", "options": ["BTC", "BTX", "XBC", "BCN"], "correct": 0, "mode": "beginner" },
