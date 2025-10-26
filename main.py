@@ -1,4 +1,4 @@
-# Telegram Quiz Bot — stable, freeze-resistant, admin-only (PTB 21, Python 3.13 friendly)
+# Telegram Quiz Bot — stable timing (monotonic), admin-only, PTB v21
 from __future__ import annotations
 
 import os, json, time, random, math, html, logging, threading, uuid, asyncio, signal
@@ -18,7 +18,7 @@ from telegram.ext import (
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger("quizbot")
 
-# ---------- SETTINGS (read from env with safe defaults) ----------
+# ---------- ENV HELPERS ----------
 def _int_env(name: str, default: int, lo: int, hi: int) -> int:
     v = os.getenv(name)
     if v is None: return default
@@ -40,9 +40,10 @@ def _bool_env(name: str, default: bool) -> bool:
     if v is None: return default
     return v.strip().lower() in ("1","true","yes","y","on")
 
-QUESTION_TIME  = _int_env("QUESTION_TIME", 10, 3, 120)        # seconds per question
-DELAY_NEXT     = _int_env("DELAY_NEXT",    5, 1, 60)          # seconds between questions
-TICK_SECONDS   = _float_env("TICK_SECONDS", 1.0, 0.5, 5.0)    # countdown edit interval
+# ---------- SETTINGS (Railway tunables) ----------
+QUESTION_TIME  = _int_env("QUESTION_TIME", 12, 3, 120)        # per-question seconds
+DELAY_NEXT     = _int_env("DELAY_NEXT",     3, 1, 60)         # gap between questions
+TICK_SECONDS   = _float_env("TICK_SECONDS", 2.0, 0.5, 5.0)    # countdown edit cadence
 POINTS_MAX     = _int_env("POINTS_MAX",   100, 10, 1000)
 QUESTIONS_FILE = os.getenv("QUESTIONS_FILE", "questions.json")
 ADMINS_ONLY    = _bool_env("ADMINS_ONLY", True)
@@ -50,14 +51,13 @@ ADMINS_ONLY    = _bool_env("ADMINS_ONLY", True)
 ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
 MODES = ("beginner", "standard", "expert")
 
-# Build/instance info (handy for debugging/multi-replica)
 BUILD_ID    = os.getenv("BUILD_ID", "dev")
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
 
 def esc(s: str) -> str:
     return html.escape(str(s), quote=True)
 
-# ---------- SAFE TELEGRAM CALL (auto retry/backoff) ----------
+# ---------- SAFE TELEGRAM CALL ----------
 async def _tg(desc: str, coro, *args, **kwargs):
     attempts = 0
     while True:
@@ -85,13 +85,10 @@ async def _tg(desc: str, coro, *args, **kwargs):
             log.error("%s: unexpected %s: %s", desc, type(e).__name__, e)
             return None
 
-# ---------- FIRE & FORGET ----------
 def fire_and_forget(coro):
     async def _run():
-        try:
-            await coro
-        except Exception:
-            pass
+        try: await coro
+        except Exception: pass
     asyncio.create_task(_run())
 
 # ---------- DATA ----------
@@ -119,8 +116,8 @@ class GameState:
 
     q_index: int = 0
     q_msg_id: Optional[int] = None
-    q_start_ts: Optional[float] = None
-    q_end_ts: Optional[float] = None   # exact deadline for current question
+    q_start_mono: Optional[float] = None
+    q_end_mono: Optional[float] = None  # exact deadline (monotonic)
     locked: bool = False
 
     per_q_answers: Dict[int, Dict[int, AnswerRec]] = field(default_factory=dict)
@@ -198,10 +195,11 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
     chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
     st = GAMES.get(chat_id)
-    if not st or st.q_index != qidx or st.q_end_ts is None:
+    if not st or st.q_index != qidx or st.q_end_mono is None:
         context.job.schedule_removal(); return
 
-    left = max(0, int(math.ceil(st.q_end_ts - time.time())))
+    # monotonic -> perfect countdown regardless of wall-clock changes
+    left = max(0, int(math.ceil(st.q_end_mono - time.monotonic())))
     if left <= 0:
         context.job.schedule_removal(); return
 
@@ -215,10 +213,10 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
 
 async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_ts = d["end_ts"]
+    chat_id = d["chat_id"]; msg_id = d["msg_id"]; end_mono = d["end_mono"]
     st = GAMES.get(chat_id)
     if not st: context.job.schedule_removal(); return
-    left = max(0, int(math.ceil(end_ts - time.time())))
+    left = max(0, int(math.ceil(end_mono - time.monotonic())))
     if left <= 0:
         context.job.schedule_removal()
         fire_and_forget(_tg("gap.final", context.bot.edit_message_text,
@@ -259,13 +257,13 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
     st = GAMES.get(chat_id)
-    if not st or st.q_end_ts is None:
+    if not st or st.q_end_mono is None:
         return
 
-    now = time.time()
-    # Safety guard: if this fired a little early, reschedule to exact deadline
-    if now < st.q_end_ts - 0.15:
-        when = max(0.0, st.q_end_ts - now)
+    now = time.monotonic()
+    # If scheduler woke early due to jitter, reschedule to exact deadline
+    if now < st.q_end_mono - 0.05:
+        when = max(0.0, st.q_end_mono - now)
         context.job_queue.run_once(close_question, when=when, data={"chat_id": chat_id})
         return
 
@@ -273,7 +271,7 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
         return
     st.locked = True
 
-    # Freeze question (remove keyboard) — non-blocking
+    # Freeze (remove keyboard) — non-blocking
     fire_and_forget(_tg("close.freeze", context.bot.edit_message_text,
         chat_id=chat_id, message_id=st.q_msg_id,
         text=fmt_question(st.q_index+1, st.limit, st.questions[st.q_index], 0,
@@ -288,18 +286,18 @@ async def close_question(context: ContextTypes.DEFAULT_TYPE):
     st.per_q_answers.pop(st.q_index, None)
     st.answered_now.pop(st.q_index, None)
 
-    # Gap & next question (schedule next step NOW so the timeline never stalls)
-    gap_end = time.time() + DELAY_NEXT
+    # Gap & next question
+    gap_end_mono = time.monotonic() + DELAY_NEXT
 
     async def _gap_bundle():
         m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id,
-                      text=f"⏭️ Next question in {int(math.ceil(DELAY_NEXT))}s…")
+                      text=f"⏭️ Next question in {DELAY_NEXT}s…")
         if m and getattr(m, "message_id", None):
             context.job_queue.run_repeating(
                 gap_tick,
                 interval=max(1.0, TICK_SECONDS),
                 first=max(1.0, TICK_SECONDS),
-                data={"chat_id": chat_id, "msg_id": m.message_id, "end_ts": gap_end},
+                data={"chat_id": chat_id, "msg_id": m.message_id, "end_mono": gap_end_mono},
                 name=f"gap:{chat_id}:{st.q_index}",
             )
     fire_and_forget(_gap_bundle())
@@ -324,13 +322,13 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         log.error("ask_question: failed to send; ending session")
         await finish_quiz(context, st); return
 
-    st.q_msg_id  = m.message_id
-    st.q_start_ts = time.time()
-    st.q_end_ts   = st.q_start_ts + QUESTION_TIME
-    st.locked     = False
+    st.q_msg_id   = m.message_id
+    st.q_start_mono = time.monotonic()
+    st.q_end_mono   = st.q_start_mono + QUESTION_TIME
+    st.locked       = False
     st.answered_now[st.q_index] = set()
 
-    # one ticker, one closer (ticker reads st.q_end_ts; closer double-checks)
+    # one ticker, one closer (ticker reads q_end_mono; closer double-checks)
     context.job_queue.run_repeating(
         tick_edit,
         interval=TICK_SECONDS,
@@ -464,8 +462,7 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Please run /menu and complete both steps first, or use:\n"
             "/startquiz <mode> <length>\nExample: /startquiz beginner 10"
-        )
-        return
+        ); return
     await do_startquiz(context, chat_id, user.id, mode, int(length))
 
 async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter_user_id: int, mode: str, length: int):
@@ -494,7 +491,7 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fire_and_forget(q.answer("No active quiz here.", show_alert=False)); return
     if st.q_index+1!=qnum:
         fire_and_forget(q.answer("This question is already closed.", show_alert=False)); return
-    if st.locked or st.q_start_ts is None:
+    if st.locked or st.q_start_mono is None:
         fire_and_forget(q.answer("Time is up!", show_alert=False)); return
 
     st.answered_now.setdefault(st.q_index,set())
@@ -507,7 +504,7 @@ async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id in st.per_q_answers[st.q_index]:
         fire_and_forget(q.answer("Only your first answer counts.", show_alert=False)); return
 
-    elapsed=max(0.0, time.time()-st.q_start_ts); is_correct=(opt==st.questions[st.q_index].correct)
+    elapsed=max(0.0, time.monotonic()-st.q_start_mono); is_correct=(opt==st.questions[st.q_index].correct)
     pts=points(elapsed) if is_correct else 0
     st.per_q_answers[st.q_index][user.id]=AnswerRec(opt,is_correct,elapsed,pts)
     if is_correct: st.corrects[user.id]=st.corrects.get(user.id,0)+1
@@ -584,7 +581,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     GAMES.pop(chat_id, None); LAST.pop(chat_id, None); SETTINGS.pop(chat_id, None); cancel_jobs_for_chat(context, chat_id)
     await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
 
-# Unknown commands fall back to help (prevents confusion in groups)
+# Unknown commands fall back to help
 async def on_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text and update.message.text.startswith("/"):
         await update.message.reply_text("Unknown command. Try /help")
@@ -608,7 +605,7 @@ def start_keepalive_if_needed():
     threading.Thread(target=lambda: HTTPServer(("0.0.0.0", port), H).serve_forever(), daemon=True).start()
     log.info("Keep-alive HTTP listening on 0.0.0.0:%d", port)
 
-# ---------- ERROR ----------
+# ---------- ERRORS ----------
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log.exception("Unhandled error: %s", context.error)
 
@@ -618,7 +615,6 @@ def build_app() -> Application:
     if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
 
     builder = Application.builder().token(token)
-    # Optional: enable AIORateLimiter if installed
     try:
         from telegram.ext import AIORateLimiter
         builder = builder.rate_limiter(AIORateLimiter())
@@ -645,12 +641,11 @@ def build_app() -> Application:
     app.add_error_handler(on_error)
     return app
 
-# ---------- MANUAL STARTUP (Python 3.13 safe) ----------
+# ---------- MANUAL STARTUP ----------
 async def _main():
     start_keepalive_if_needed()
     app = build_app()
 
-    # Ensure no old webhook blocks polling
     try:
         await app.bot.delete_webhook(drop_pending_updates=True)
         me = await app.bot.get_me()
@@ -666,21 +661,15 @@ async def _main():
     )
     log.info("Polling started.")
 
-    # Idle until SIGINT/SIGTERM
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop.set)
-        except NotImplementedError:
-            pass
+        try: loop.add_signal_handler(sig, stop.set)
+        except NotImplementedError: pass
     await stop.wait()
 
-    # graceful shutdown
-    try:
-        await app.updater.stop()
-    except Exception:
-        pass
+    try: await app.updater.stop()
+    except Exception: pass
     await app.stop()
     await app.shutdown()
 
