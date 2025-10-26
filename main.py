@@ -1,6 +1,6 @@
-# Telegram Quiz Bot — precise timing (monotonic), keyboard stays until timeout
+# Telegram Quiz Bot — precise timing (monotonic), scoped close job, admin-only controls
 from __future__ import annotations
-import os, json, time, random, math, html, logging, threading, uuid
+import os, json, time, random, math, html, logging, threading, uuid, asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Set, Tuple
@@ -23,14 +23,16 @@ def _int(name, d, lo, hi):
     if v is None: return d
     try:
         x=int(v); return max(lo, min(hi, x))
-    except: return d
+    except:
+        return d
 
 def _float(name, d, lo, hi):
     v = os.getenv(name)
     if v is None: return d
     try:
         x=float(v); return max(lo, min(hi, x))
-    except: return d
+    except:
+        return d
 
 def _bool(name, d):
     v = os.getenv(name)
@@ -169,8 +171,6 @@ def cancel_jobs(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         log.warning("job cleanup error: %s", e)
 
 # -------------- JOBS ---------------------
-import asyncio
-
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
     chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
@@ -226,15 +226,26 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
               text="\n".join(lines), parse_mode=ParseMode.HTML)
 
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.job.data["chat_id"]
+    d = context.job.data
+    chat_id = d["chat_id"]
+    qidx_job = d.get("qidx")
+
     st = GAMES.get(chat_id)
     if not st or st.q_end_mono is None:
         return
+
+    # Ignore stale close jobs from previous questions
+    if qidx_job is None or st.q_index != qidx_job:
+        context.job.schedule_removal()
+        return
+
     # Guard against early wake-up: rearm to exact time if needed
     now = time.monotonic()
-    if now < st.q_end_mono - 0.05:
-        context.job_queue.run_once(close_question, when=st.q_end_mono - now, data={"chat_id": chat_id})
+    remaining = st.q_end_mono - now
+    if remaining > 0.05:
+        context.job_queue.run_once(close_question, when=remaining, data={"chat_id": chat_id, "qidx": qidx_job})
         return
+
     if st.locked: return
     st.locked = True
 
@@ -291,7 +302,7 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
         name=f"tick:{st.chat_id}:{st.q_index}"
     )
     context.job_queue.run_once(
-        close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id},
+        close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id, "qidx": st.q_index},
         name=f"close:{st.chat_id}:{st.q_index}"
     )
 
@@ -326,7 +337,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
         if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
             return
     await update.message.reply_text(f"pong from {INSTANCE_ID}")
@@ -417,6 +428,9 @@ async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await do_startquiz(context, chat_id, user.id, mode, int(length))
 
 async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter_user_id: int, mode: str, length: int):
+    # Prevent leftover timers from previous sessions in this chat
+    cancel_jobs(context, chat_id)
+
     pool = by_mode(load_questions(), str(mode))
     if len(pool) < int(length):
         await _tg("start.notenough", context.bot.send_message, chat_id=chat_id,
@@ -590,7 +604,6 @@ def build_app() -> Application:
 
 # -------------- START --------------------
 if __name__ == "__main__":
-    import asyncio
     log.info("Starting quiz bot…")
     start_keepalive_if_needed()
     app = build_app()
