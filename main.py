@@ -1,6 +1,6 @@
 # Telegram Quiz Bot — precise timing (monotonic), scoped close job, admin-only controls
 from __future__ import annotations
-import os, json, time, random, math, html, logging, threading, uuid, asyncio
+import os, json, time, math, html, logging, threading, uuid, asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Set, Tuple
@@ -8,75 +8,93 @@ from typing import List, Dict, Optional, Set, Tuple
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import RetryAfter, TimedOut, NetworkError, BadRequest
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, MessageHandler,
-    ContextTypes, filters
-)
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
-# ---------------- LOGGING ----------------
+# Optional: psutil for memory logging (install if you want: pip install psutil)
+try:
+    import psutil
+except Exception:
+    psutil = None
+
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 log = logging.getLogger("quizbot")
 
-# --------------- ENV ---------------------
+def log_mem(tag=""):
+    try:
+        if psutil:
+            p = psutil.Process(os.getpid())
+            rss_mb = p.memory_info().rss / 1024 / 1024
+            log.info("%s: memory=%.1fMB", tag, rss_mb)
+        else:
+            # fallback: only log pid
+            log.info("%s: pid=%s", tag, os.getpid())
+    except Exception:
+        log.exception("mem logging failed")
+
+# ---------- env helpers ----------
 def _int(name, d, lo, hi):
     v = os.getenv(name)
     if v is None: return d
     try:
-        x=int(v); return max(lo, min(hi, x))
-    except:
-        return d
+        x = int(v); return max(lo, min(hi, x))
+    except Exception: return d
 
 def _float(name, d, lo, hi):
     v = os.getenv(name)
     if v is None: return d
     try:
-        x=float(v); return max(lo, min(hi, x))
-    except:
-        return d
+        x = float(v); return max(lo, min(hi, x))
+    except Exception: return d
 
 def _bool(name, d):
     v = os.getenv(name)
     if v is None: return d
     return v.strip().lower() in ("1","true","yes","y","on")
 
-QUESTION_TIME  = _int("QUESTION_TIME", 10, 3, 120)      # full time buttons remain
-DELAY_NEXT     = _int("DELAY_NEXT",     3, 1, 60)       # gap between questions
-TICK_SECONDS   = _float("TICK_SECONDS", 2.0, 0.5, 5.0)  # countdown edit cadence
-POINTS_MAX     = _int("POINTS_MAX",   100, 10, 1000)
+TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("TOKEN")
+QUESTION_TIME = _int("QUESTION_TIME", 10, 3, 120)
+DELAY_NEXT = _int("DELAY_NEXT", 3, 1, 60)
+TICK_SECONDS = _float("TICK_SECONDS", 1.0, 0.5, 5.0)
+POINTS_MAX = _int("POINTS_MAX", 100, 10, 1000)
 QUESTIONS_FILE = os.getenv("QUESTIONS_FILE", "questions.json")
-ADMINS_ONLY    = _bool("ADMINS_ONLY", True)
-
-ALLOWED_SESSION_SIZES = (10, 20, 30, 40, 50)
-MODES = ("beginner", "standard", "expert")
-
+ADMINS_ONLY = _bool("ADMINS_ONLY", True)
+ALLOWED_SESSION_SIZES = (10,20,30,40,50)
+MODES = ("beginner","standard","expert")
 INSTANCE_ID = os.getenv("RAILWAY_REPLICA_ID") or str(uuid.uuid4())[:8]
+
+log.info("CONFIG: TOKEN=%s QUESTION_TIME=%s DELAY_NEXT=%s TICK_SECONDS=%s ADMINS_ONLY=%s",
+         ("SET" if TOKEN else "MISSING"), QUESTION_TIME, DELAY_NEXT, TICK_SECONDS, ADMINS_ONLY)
+log_mem("startup")
 
 def esc(s: str) -> str:
     return html.escape(str(s), quote=True)
 
-# ----------- SAFE TELEGRAM CALL ----------
+# ---------- _tg safe wrapper ----------
 async def _tg(desc: str, coro, *args, **kwargs):
-    try:
-        return await coro(*args, **kwargs)
-    except RetryAfter as e:
-        wait = float(getattr(e, "retry_after", 1.0)) + 0.5
-        log.warning("%s: RetryAfter %.2fs", desc, wait)
-        await asyncio.sleep(wait)
-        try: return await coro(*args, **kwargs)
-        except Exception as e2:
-            log.warning("%s: giving up after retry: %s", desc, e2); return None
-    except (TimedOut, NetworkError) as e:
-        log.warning("%s: %s; mild backoff", desc, type(e).__name__)
-        await asyncio.sleep(1.0)
-        try: return await coro(*args, **kwargs)
-        except Exception as e2:
-            log.warning("%s: giving up after retry: %s", desc, e2); return None
-    except BadRequest as e:
-        log.debug("%s: BadRequest ignored: %s", desc, e); return None
-    except Exception as e:
-        log.error("%s: unexpected %s: %s", desc, type(e).__name__, e); return None
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            return await coro(*args, **kwargs)
+        except RetryAfter as e:
+            wait = float(getattr(e, "retry_after", 1.0)) + 0.5
+            log.warning("%s: RetryAfter %.2fs (attempt %d)", desc, wait, attempts)
+            if attempts >= 3:
+                log.warning("%s: giving up after RetryAfter", desc)
+                return None
+            await asyncio.sleep(wait)
+        except (TimedOut, NetworkError) as e:
+            wait = min(2.0 * attempts, 6.0)
+            log.warning("%s: %s; backoff %.2fs (attempt %d)", desc, type(e).__name__, wait, attempts)
+            if attempts >= 3:
+                log.warning("%s: giving up after network errors", desc); return None
+            await asyncio.sleep(wait)
+        except BadRequest as e:
+            log.debug("%s: BadRequest ignored: %s", desc, e); return None
+        except Exception:
+            log.exception("%s: unexpected exception", desc); return None
 
-# -------------- DATA ---------------------
+# ---------- data ----------
 @dataclass
 class QItem:
     text: str
@@ -110,11 +128,8 @@ class GameState:
     corrects: Dict[int, int] = field(default_factory=dict)
 
 GAMES: Dict[int, GameState] = {}
-LAST: Dict[int, dict] = {}
-SETTINGS: Dict[int, Dict[str, int | str]] = {}
 
-# -------------- HELPERS ------------------
-def points(elapsed: float) -> int:
+def points_for_elapsed(elapsed: float) -> int:
     if elapsed >= QUESTION_TIME: return 0
     return int(round((max(0.0, QUESTION_TIME - elapsed) / QUESTION_TIME) * POINTS_MAX))
 
@@ -129,37 +144,35 @@ def fmt_q(qnum: int, total: int, q: QItem, left: Optional[int] = None, locked_co
     return s
 
 def load_questions() -> List[QItem]:
+    if not os.path.exists(QUESTIONS_FILE):
+        raise FileNotFoundError(f"{QUESTIONS_FILE} missing")
     with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
-    out: List[QItem] = []
-    for i, q in enumerate(data, start=1):
+    out = []
+    for i,q in enumerate(data, start=1):
         if not all(k in q for k in ("text","options","correct","mode")):
             raise ValueError(f"Q{i} missing fields")
-        if q["mode"] not in MODES:
-            raise ValueError(f"Q{i} invalid mode {q['mode']}")
-        if len(q["options"]) != 4:
+        if q["mode"] not in MODES: raise ValueError(f"Q{i} invalid mode")
+        if not isinstance(q["options"], list) or len(q["options"])!=4:
             raise ValueError(f"Q{i} must have 4 options")
         c = int(q["correct"])
-        if not 0 <= c < 4:
-            raise ValueError(f"Q{i} invalid correct index {c}")
+        if not 0<=c<4: raise ValueError(f"Q{i} invalid correct")
         out.append(QItem(q["text"], list(q["options"]), c, q["mode"]))
     return out
 
 def by_mode(all_qs: List[QItem], mode: str) -> List[QItem]:
     return [q for q in all_qs if q.mode == mode]
 
+import random
 def shuffle_qs(qs: List[QItem]) -> List[QItem]:
     qs = qs.copy(); random.shuffle(qs)
-    out: List[QItem] = []
+    out = []
     for q in qs:
         pairs = list(enumerate(q.options)); random.shuffle(pairs)
-        new_opts = [t for _, t in pairs]
-        new_correct = next(i for i, (orig, _) in enumerate(pairs) if orig == q.correct)
+        new_opts = [t for _,t in pairs]
+        new_correct = next(i for i,(orig,_) in enumerate(pairs) if orig == q.correct)
         out.append(QItem(q.text, new_opts, new_correct, q.mode))
     return out
-
-def compute_totals(st: GameState) -> Tuple[Dict[int, int], Dict[int, int]]:
-    return st.totals, st.corrects
 
 def cancel_jobs(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     try:
@@ -167,10 +180,11 @@ def cancel_jobs(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             name = getattr(job, "name", "") or ""
             if name.startswith(f"tick:{chat_id}:") or name.startswith(f"close:{chat_id}:") or name.startswith(f"gap:{chat_id}:"):
                 job.schedule_removal()
-    except Exception as e:
-        log.warning("job cleanup error: %s", e)
+                log.info("cancel_jobs: removed job %s", name)
+    except Exception:
+        log.exception("job cleanup error")
 
-# -------------- JOBS ---------------------
+# ---------- jobs & lifecycle (with logs) ----------
 async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
     chat_id = d["chat_id"]; msg_id = d["msg_id"]; qidx = d["qidx"]
@@ -180,7 +194,8 @@ async def tick_edit(context: ContextTypes.DEFAULT_TYPE):
     left = max(0, int(math.ceil(st.q_end_mono - time.monotonic())))
     if left <= 0:
         context.job.schedule_removal(); return
-    # IMPORTANT: do NOT pass reply_markup here -> keyboard stays
+    log.debug("tick_edit: chat=%s qidx=%d left=%d msg=%s", chat_id, qidx, left, msg_id)
+    # IMPORTANT: do NOT pass reply_markup here -> keyboard remains
     await _tg("tick.edit", context.bot.edit_message_text,
               chat_id=chat_id, message_id=msg_id,
               text=fmt_q(st.q_index+1, st.limit, st.questions[st.q_index], left,
@@ -195,18 +210,15 @@ async def gap_tick(context: ContextTypes.DEFAULT_TYPE):
     left = max(0, int(math.ceil(end_mono - time.monotonic())))
     if left <= 0:
         context.job.schedule_removal()
-        await _tg("gap.final", context.bot.edit_message_text,
-                  chat_id=chat_id, message_id=msg_id, text="🚀 Starting next question…")
+        await _tg("gap.final", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id, text="🚀 Starting next question…")
         return
-    await _tg("gap.tick", context.bot.edit_message_text,
-              chat_id=chat_id, message_id=msg_id, text=f"⏭️ Next question in {left}s…")
+    await _tg("gap.tick", context.bot.edit_message_text, chat_id=chat_id, message_id=msg_id, text=f"⏭️ Next question in {left}s…")
 
 async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qidx: int):
     q = st.questions[qidx]
     per = st.per_q_answers.get(qidx, {})
-    scorers = sorted(((uid, rec.points) for uid, rec in per.items() if rec.is_correct),
-                     key=lambda t:t[1], reverse=True)
-    scores, corrects = compute_totals(st)
+    scorers = sorted(((uid, rec.points) for uid, rec in per.items() if rec.is_correct), key=lambda t:t[1], reverse=True)
+    scores, corrects = st.totals, st.corrects
     ranking = sorted(scores.items(), key=lambda x:x[1], reverse=True)
     lines = [f"📘 <b>Q{qidx+1} Result</b>", f"✅ Correct answer: <b>{esc(q.options[q.correct])}</b>"]
     if scorers:
@@ -217,65 +229,47 @@ async def post_round_recap(context: ContextTypes.DEFAULT_TYPE, st: GameState, qi
         lines.append("😶 No correct answers this round.")
     if ranking:
         lines.append("\n🏁 <b>Current Leaderboard</b> (Top 5)")
-        for rank, (uid, total) in enumerate(ranking[:5], start=1):
-            name = esc(st.players.get(uid, str(uid)))
-            corr = corrects.get(uid, 0)
-            medal = ("🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"{rank}.")
+        for rank,(uid,total) in enumerate(ranking[:5], start=1):
+            name = esc(st.players.get(uid, str(uid))); corr = corrects.get(uid, 0)
+            medal = ("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
             lines.append(f"{medal} {name} — {corr} correct — {total} pts")
-    await _tg("recap.send", context.bot.send_message, chat_id=st.chat_id,
-              text="\n".join(lines), parse_mode=ParseMode.HTML)
+    await _tg("recap.send", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
 
 async def close_question(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat_id = d["chat_id"]
-    qidx_job = d.get("qidx")
-
+    chat_id = d.get("chat_id"); qidx_job = d.get("qidx")
+    log.info("close_question called: chat=%s qidx_job=%s", chat_id, qidx_job)
     st = GAMES.get(chat_id)
     if not st or st.q_end_mono is None:
-        return
-
-    # Ignore stale close jobs from previous questions
+        log.info("close_question: no state or q_end_mono None for chat=%s", chat_id); return
     if qidx_job is None or st.q_index != qidx_job:
-        context.job.schedule_removal()
-        return
-
-    # Guard against early wake-up: rearm to exact time if needed
-    now = time.monotonic()
-    remaining = st.q_end_mono - now
+        log.info("close_question: stale job: st.q_index=%s qidx_job=%s -> remove", st.q_index, qidx_job)
+        context.job.schedule_removal(); return
+    now = time.monotonic(); remaining = st.q_end_mono - now
+    log.info("close_question: now=%.3f end=%.3f remaining=%.3f chat=%s", now, st.q_end_mono, remaining, chat_id)
     if remaining > 0.05:
-        context.job_queue.run_once(close_question, when=remaining, data={"chat_id": chat_id, "qidx": qidx_job})
-        return
-
+        context.job_queue.run_once(close_question, when=remaining, data={"chat_id": chat_id, "qidx": qidx_job}, name=f"close:{chat_id}:{qidx_job}")
+        log.info("close_question: re-armed for chat=%s qidx=%s remaining=%.3f", chat_id, qidx_job, remaining); return
     if st.locked: return
     st.locked = True
-
-    # Remove keyboard exactly at timeout
     await _tg("close.freeze", context.bot.edit_message_text,
               chat_id=chat_id, message_id=st.q_msg_id,
               text=fmt_q(st.q_index+1, st.limit, st.questions[st.q_index], 0,
                          len(st.per_q_answers.get(st.q_index, {}))),
               reply_markup=None, parse_mode=ParseMode.HTML)
-
-    # Recap + free per-question memory
     await post_round_recap(context, st, st.q_index)
-    st.per_q_answers.pop(st.q_index, None)
-    st.answered_now.pop(st.q_index, None)
-
-    # Gap and next question
+    st.per_q_answers.pop(st.q_index, None); st.answered_now.pop(st.q_index, None)
     gap_end = time.monotonic() + DELAY_NEXT
-    m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id,
-                  text=f"⏭️ Next question in {DELAY_NEXT}s…")
+    m = await _tg("gap.send", context.bot.send_message, chat_id=chat_id, text=f"⏭️ Next question in {DELAY_NEXT}s…")
     if m and getattr(m, "message_id", None):
-        context.job_queue.run_repeating(
-            gap_tick, interval=max(1.0, TICK_SECONDS), first=max(1.0, TICK_SECONDS),
-            data={"chat_id": chat_id, "msg_id": m.message_id, "end_mono": gap_end},
-            name=f"gap:{chat_id}:{st.q_index}"
-        )
+        context.job_queue.run_repeating(gap_tick, interval=max(1.0, TICK_SECONDS), first=max(1.0, TICK_SECONDS),
+                                        data={"chat_id": chat_id, "msg_id": m.message_id, "end_mono": gap_end},
+                                        name=f"gap:{chat_id}:{st.q_index}")
     context.job_queue.run_once(next_question, when=DELAY_NEXT, data={"chat_id": chat_id})
 
 async def next_question(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.data["chat_id"]
-    st = GAMES.get(chat_id)
+    st = GAMES.get(chat_id); 
     if not st: return
     st.q_index += 1
     if st.q_index >= st.limit:
@@ -286,325 +280,165 @@ async def ask_question(context: ContextTypes.DEFAULT_TYPE, st: GameState):
     q = st.questions[st.q_index]
     m = await _tg("ask.send", context.bot.send_message, chat_id=st.chat_id,
                   text=fmt_q(st.q_index+1, st.limit, q, QUESTION_TIME, 0),
-                  reply_markup=answer_kb(q, st.q_index+1), parse_mode=ParseMode.HTML)
+                  reply_markup=answer_kb(q, st.q_index),
+                  parse_mode=ParseMode.HTML)
     if not m:
+        log.error("ask_question: failed to send; finishing")
         await finish_quiz(context, st); return
-    st.q_msg_id = m.message_id
+    st.q_msg_id = getattr(m, "message_id", None)
     st.q_start_mono = time.monotonic()
-    st.q_end_mono   = st.q_start_mono + QUESTION_TIME
-    st.locked       = False
-    st.answered_now[st.q_index] = set()
+    st.q_end_mono = st.q_start_mono + QUESTION_TIME
+    log.info("ask_question: chat=%s qidx=%d start=%.3f end=%.3f msg=%s", st.chat_id, st.q_index, st.q_start_mono, st.q_end_mono, st.q_msg_id)
+    log_mem(f"ask_question chat={st.chat_id} qidx={st.q_index}")
+    st.locked = False; st.answered_now[st.q_index] = set()
+    context.job_queue.run_repeating(tick_edit, interval=max(0.5, TICK_SECONDS), first=max(0.5, TICK_SECONDS),
+                                    data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "qidx": st.q_index, "end_mono": st.q_end_mono},
+                                    name=f"tick:{st.chat_id}:{st.q_index}")
+    context.job_queue.run_once(close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id, "qidx": st.q_index}, name=f"close:{st.chat_id}:{st.q_index}")
+    log.info("ask_question: scheduled tick and close jobs chat=%s qidx=%d", st.chat_id, st.q_index)
 
-    # One ticker (text only), one closer (removes keyboard exactly at deadline)
-    context.job_queue.run_repeating(
-        tick_edit, interval=TICK_SECONDS, first=TICK_SECONDS,
-        data={"chat_id": st.chat_id, "msg_id": st.q_msg_id, "qidx": st.q_index},
-        name=f"tick:{st.chat_id}:{st.q_index}"
-    )
-    context.job_queue.run_once(
-        close_question, when=QUESTION_TIME, data={"chat_id": st.chat_id, "qidx": st.q_index},
-        name=f"close:{st.chat_id}:{st.q_index}"
-    )
+async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
+    scores = st.totals
+    ranking = sorted(scores.items(), key=lambda x:x[1], reverse=True)
+    lines = [f"🏁 <b>Quiz Finished</b> — Played by {len(st.players)} players"]
+    if ranking:
+        lines.append("\n🏆 Final leaderboard (Top 10):")
+        for rank,(uid,total) in enumerate(ranking[:10], start=1):
+            name = esc(st.players.get(uid, str(uid))); corr = st.corrects.get(uid, 0)
+            medal = ("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
+            lines.append(f"{medal} {name} — {corr} correct — {total} pts")
+    else:
+        lines.append("No scoring data.")
+    await _tg("finish.send", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
+    cancel_jobs(context, st.chat_id)
+    GAMES.pop(st.chat_id, None)
+    log.info("finish_quiz: cleaned game for chat=%s", st.chat_id)
+    log_mem("after finish")
 
-# -------------- ADMIN --------------------
+# ---------- handlers ----------
+async def answer_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query: return
+    await context.bot.answer_callback_query(query.id)
+    data = query.data or ""
+    try:
+        _, qidx_s, choice_s = data.split(":")
+        qidx = int(qidx_s); choice = int(choice_s)
+    except Exception:
+        log.debug("bad callback data: %r", data); return
+    chat_id = query.message.chat_id
+    st = GAMES.get(chat_id)
+    if not st:
+        log.info("answer_cb: no game for chat=%s", chat_id); return
+    if st.q_index != qidx:
+        log.info("answer_cb: stale answer chat=%s qidx=%s current=%s", chat_id, qidx, st.q_index); return
+    if st.locked or st.q_end_mono is None:
+        log.info("answer_cb: locked/no end chat=%s", chat_id); return
+    user = update.effective_user; uid = user.id
+    if uid in st.answered_now.get(qidx, set()):
+        log.info("answer_cb: duplicate uid=%s qidx=%s", uid, qidx); return
+    st.answered_now.setdefault(qidx, set()).add(uid)
+    elapsed = time.monotonic() - (st.q_start_mono or time.monotonic()); elapsed = max(0.0, elapsed)
+    is_correct = (choice == st.questions[qidx].correct)
+    pts = points_for_elapsed(elapsed) if is_correct else 0
+    st.per_q_answers.setdefault(qidx, {})[uid] = AnswerRec(choice, is_correct, elapsed, pts)
+    st.players.setdefault(uid, user.full_name or user.username or str(uid))
+    st.totals[uid] = st.totals.get(uid, 0) + pts
+    if is_correct: st.corrects[uid] = st.corrects.get(uid, 0) + 1
+    log.info("answer_cb: chat=%s qidx=%d uid=%s choice=%d elapsed=%.3f pts=%d correct=%s", chat_id, qidx, uid, choice, elapsed, pts, is_correct)
+
 async def is_admin(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> bool:
     try:
-        m = await context.bot.get_chat_member(chat_id, user_id)
-        return m.status in ("administrator", "creator")
+        mem = await context.bot.get_chat_member(chat_id, user_id)
+        return mem.status in ("administrator","creator")
     except Exception:
-        return False
-
-# -------------- COMMANDS -----------------
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    cfg = SETTINGS.get(update.effective_chat.id, {})
-    mode = cfg.get("mode"); length = cfg.get("length")
-    await update.message.reply_text(
-        "✨ <b>Quiz Bot</b>\n────────────\n"
-        "Step 1: /menu — choose <b>Mode</b>\n"
-        "Step 2: choose <b>How many questions</b>\n"
-        "Then: /startquiz — start (admin-only in groups)\n\n"
-        "During play: recap + leaderboard each round.\n"
-        "Tools: /leaderboard • /answer • /stop • /reset • /ping\n\n"
-        f"Current: Mode={esc(mode) if mode else '—'} • Length={esc(length) if length else '—'}",
-        parse_mode=ParseMode.HTML
-    )
-
-async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Commands:\n/start • /help • /menu • /startquiz\n"
-        "/leaderboard • /answer • /stop • /reset\n/ping",
-        parse_mode=ParseMode.HTML
-    )
+        log.exception("is_admin failed"); return False
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
-            return
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id): return
     await update.message.reply_text(f"pong from {INSTANCE_ID}")
 
-async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
-            await update.message.reply_text("Only group admins can configure the quiz here."); return
-    rows = [[InlineKeyboardButton("Beginner", callback_data="cfg:mode:beginner"),
-             InlineKeyboardButton("Standard", callback_data="cfg:mode:standard"),
-             InlineKeyboardButton("Expert",   callback_data="cfg:mode:expert")]]
-    await _tg("menu.send", context.bot.send_message, chat_id=update.effective_chat.id,
-              text="<b>Step 1/2</b>: Choose a <b>Mode</b>.",
-              reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
-
-async def _send_length_menu(update_or_query, context):
-    rows = [[InlineKeyboardButton("10", callback_data="cfg:len:10"),
-             InlineKeyboardButton("20", callback_data="cfg:len:20"),
-             InlineKeyboardButton("30", callback_data="cfg:len:30")],
-            [InlineKeyboardButton("40", callback_data="cfg:len:40"),
-             InlineKeyboardButton("50", callback_data="cfg:len:50")]]
-    chat_id = update_or_query.effective_chat.id if isinstance(update_or_query, Update) else update_or_query.message.chat.id
-    await _tg("length.send", context.bot.send_message, chat_id=chat_id,
-              text="<b>Step 2/2</b>: How many questions will be held?",
-              reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
-
-async def cfg_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    data = q.data
-    if not data.startswith("cfg:"): return
-    chat_id = q.message.chat.id
-    if q.message.chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, chat_id, q.from_user.id):
-            try: await q.answer("Only group admins can change quiz settings here.", show_alert=True)
-            except Exception: pass
-            return
-    _, kind, val = data.split(":")
-    GAMES.pop(chat_id, None); LAST.pop(chat_id, None)
-    if kind == "mode":
-        if val not in MODES: await q.edit_message_text("Invalid mode."); return
-        SETTINGS.setdefault(chat_id, {})["mode"] = val
-        try: await q.edit_message_text(f"Mode set to <b>{esc(val.title())}</b> ✅", parse_mode=ParseMode.HTML)
-        except Exception: pass
-        await _send_length_menu(update, context); return
-    if kind == "len":
-        try: length=int(val)
-        except: await q.edit_message_text("Invalid length."); return
-        if length not in ALLOWED_SESSION_SIZES: await q.edit_message_text("Invalid length."); return
-        SETTINGS.setdefault(chat_id, {})["length"]=length
-        mode = SETTINGS.get(chat_id, {}).get("mode")
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("▶️ Start quiz", callback_data=f"start:{mode}:{length}")]]) if mode in MODES else None
-        await q.edit_message_text(f"Length set to <b>{length}</b> ✅\nUse /startquiz to begin, or tap ▶️ Start.", parse_mode=ParseMode.HTML)
-        if kb:
-            await _tg("start.button", context.bot.send_message, chat_id=chat_id,
-                      text=f"Ready to start <b>{esc(str(mode).title())}</b> • {length} questions?",
-                      reply_markup=kb, parse_mode=ParseMode.HTML)
-
-async def start_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    try:
-        _, mode, length_s = q.data.split(":"); length = int(length_s)
-    except Exception: return
-    chat_id = q.message.chat.id
-    if q.message.chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, chat_id, q.from_user.id):
-            try: await q.answer("Only group admins can start the quiz here.", show_alert=True)
-            except Exception: pass
-            return
-    await do_startquiz(context, chat_id, q.from_user.id, mode, length)
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("/startquiz <mode> <size> — start\n/stopquiz — stop\n/ping — ping")
 
 async def cmd_startquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id; user=update.effective_user
-    if update.effective_chat.type!="private":
-        if not await is_admin(context, chat_id, user.id):
-            await update.message.reply_text("Only group admins can start a quiz."); return
-    mode=None; length=None
-    if context.args and len(context.args)>=2:
-        mode = str(context.args[0]).lower()
-        try: length = int(context.args[1])
-        except: length = None
-    if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
-        cfg=SETTINGS.get(chat_id,{}); mode = mode or cfg.get("mode"); length = length or cfg.get("length")
-    if mode not in MODES or length not in ALLOWED_SESSION_SIZES:
-        await update.message.reply_text(
-            "Please run /menu and complete both steps first, or use:\n"
-            "/startquiz <mode> <length>\nExample: /startquiz beginner 10"
-        ); return
-    await do_startquiz(context, chat_id, user.id, mode, int(length))
+    if update.effective_chat.type != "private" and ADMINS_ONLY:
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            await update.message.reply_text("Only admins may start quizzes here."); return
+    args = context.args or []
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /startquiz <mode> <size>"); return
+    mode = args[0]
+    if mode not in MODES: await update.message.reply_text(f"Mode one of: {', '.join(MODES)}"); return
+    try: size = int(args[1])
+    except: await update.message.reply_text("Size must be a number"); return
+    if size not in ALLOWED_SESSION_SIZES:
+        await update.message.reply_text(f"Size must be one of: {', '.join(map(str, ALLOWED_SESSION_SIZES))}"); return
+    chat_id = update.effective_chat.id; user = update.effective_user
+    await do_startquiz(context, chat_id, user.id, mode, int(size))
 
 async def do_startquiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, starter_user_id: int, mode: str, length: int):
-    # Prevent leftover timers from previous sessions in this chat
     cancel_jobs(context, chat_id)
-
-    pool = by_mode(load_questions(), str(mode))
+    try:
+        pool = by_mode(load_questions(), str(mode))
+    except Exception as e:
+        log.exception("Failed to load questions"); await _tg("start.err", context.bot.send_message, chat_id=chat_id, text=f"Failed to load questions: {e}"); return
     if len(pool) < int(length):
-        await _tg("start.notenough", context.bot.send_message, chat_id=chat_id,
-                  text=f"Not enough questions in <b>{esc(mode)}</b> (need {length}).", parse_mode=ParseMode.HTML)
-        return
-    qs = shuffle_qs(pool)[: int(length)]
-    st = GameState(chat_id=chat_id, started_by=starter_user_id, questions=qs, limit=int(length), mode=str(mode))
-    GAMES[chat_id]=st; LAST.pop(chat_id, None)
-    await _tg("intro.send", context.bot.send_message, chat_id=chat_id,
-              text=(f"🎯 <b>{esc(str(mode).title())}</b> mode • {length} questions\n"
-                    f"⏱ {QUESTION_TIME}s per question • Next question in {DELAY_NEXT}s after each."),
-              parse_mode=ParseMode.HTML)
+        await _tg("start.notenough", context.bot.send_message, chat_id=chat_id, text="Not enough questions for that mode."); return
+    qs = shuffle_qs(pool)[:int(length)]
+    st = GameState(chat_id=chat_id, started_by=starter_user_id, questions=qs, limit=int(length), mode=mode)
+    GAMES[chat_id] = st
+    await _tg("start.ack", context.bot.send_message, chat_id=chat_id, text=f"Quiz starting ({mode}, {length} questions)…")
+    log.info("do_startquiz: started chat=%s mode=%s length=%s", chat_id, mode, length)
     await ask_question(context, st)
 
-# --------- ANSWERS/RESULTS ----------
-async def on_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query; user=q.from_user; chat_id=q.message.chat.id
-    try:
-        _, qnum_str, opt_str = q.data.split(":"); qnum=int(qnum_str); opt=int(opt_str)
-    except Exception: return
-    st=GAMES.get(chat_id)
-    if not st:
-        await q.answer("No active quiz here.", show_alert=False); return
-    if st.q_index+1!=qnum:
-        await q.answer("This question is already closed.", show_alert=False); return
-    if st.locked or st.q_start_mono is None:
-        await q.answer("Time is up!", show_alert=False); return
-
-    st.answered_now.setdefault(st.q_index,set())
-    if user.id in st.answered_now[st.q_index]:
-        await q.answer("Only your first answer counts.", show_alert=False); return
-    st.answered_now[st.q_index].add(user.id)
-
-    st.players[user.id] = (user.full_name or user.username or str(user.id))[:64]
-    st.per_q_answers.setdefault(st.q_index,{})
-    if user.id in st.per_q_answers[st.q_index]:
-        await q.answer("Only your first answer counts.", show_alert=False); return
-
-    elapsed=max(0.0, time.monotonic()-st.q_start_mono); is_correct=(opt==st.questions[st.q_index].correct)
-    pts=points(elapsed) if is_correct else 0
-    st.per_q_answers[st.q_index][user.id]=AnswerRec(opt,is_correct,elapsed,pts)
-    if is_correct: st.corrects[user.id]=st.corrects.get(user.id,0)+1
-    st.totals[user.id]=st.totals.get(user.id,0)+pts
-
-    await q.answer(
-        f"You chose: {st.questions[st.q_index].options[opt]}\n" +
-        ("✅ Correct" if is_correct else "❌ Locked"),
-        show_alert=False
-    )
-
-async def cmd_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id; st=GAMES.get(chat_id)
-    if st:
-        scores,corrects=compute_totals(st); source=f"Current session — {st.q_index+1}/{st.limit} asked"; name_of=st.players
-    else:
-        snap=LAST.get(chat_id)
-        if not snap:
-            await update.message.reply_text("No session found here yet."); return
-        scores=snap["scores"]; corrects=snap["corrects"]; source=f"Last finished — {snap['limit']} questions"; name_of=snap["players"]
-    if not scores:
-        await update.message.reply_text("No participants yet."); return
-    ranking=sorted(scores.items(), key=lambda x:x[1], reverse=True)
-    lines=[f"🏁 <b>Leaderboard</b> ({esc(source)})"]
-    for rank,(uid,pts_) in enumerate(ranking[:10],start=1):
-        name=esc(name_of.get(uid,str(uid))); corr=corrects.get(uid,0); medal=("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
-        lines.append(f"{medal} {name} — {corr} correct — {pts_} pts")
-    lines.append("\nGG! Thanks for participating 🎉")
-    await _tg("leaderboard.send", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
-
-async def cmd_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id; snap=LAST.get(chat_id)
-    if not snap:
-        await update.message.reply_text("No finished quiz found here yet."); return
-    qs: List[QItem]=snap["questions"]
-    lines=["📘 <b>All Correct Answers</b>"]
-    for i,q in enumerate(qs, start=1):
-        lines.append(f"Q{i}: <b>{esc(q.options[q.correct])}</b>")
-        if len("\n".join(lines))>3500:
-            await _tg("answer.chunk", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML); lines=[]
-    if lines:
-        await _tg("answer.final", context.bot.send_message, chat_id=chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
-
-async def finish_quiz(context: ContextTypes.DEFAULT_TYPE, st: GameState):
-    cancel_jobs(context, st.chat_id)
-    scores,corrects=compute_totals(st)
-    if not scores:
-        await _tg("finish.empty", context.bot.send_message, chat_id=st.chat_id, text="Quiz ended. No participants 😅")
-        GAMES.pop(st.chat_id, None); return
-    ranking=sorted(scores.items(), key=lambda x:x[1], reverse=True)
-    top_uid, top_pts = ranking[0]; top_name=esc(st.players.get(top_uid,str(top_uid)))
-    await _tg("finish.win", context.bot.send_message, chat_id=st.chat_id, text=f"🎉 Congrats, <b>{top_name}</b>! You topped the quiz with <b>{top_pts} pts</b>!", parse_mode=ParseMode.HTML)
-    lines=["🏁 <b>Final Results</b> — Top 10"]
-    for rank,(uid,pts_) in enumerate(ranking[:10], start=1):
-        name=esc(st.players.get(uid,str(uid))); corr=corrects.get(uid,0); medal=("🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}.")
-        lines.append(f"{medal} {name} — {corr}/{st.limit} correct — {pts_} pts")
-    lines.append("\nUse /leaderboard anytime. Use /answer for all correct answers. GG! 🎉")
-    await _tg("finish.board", context.bot.send_message, chat_id=st.chat_id, text="\n".join(lines), parse_mode=ParseMode.HTML)
-    LAST[st.chat_id]={"questions":st.questions,"limit":st.limit,"scores":scores,"corrects":corrects,"players":st.players,"mode":st.mode}
-    GAMES.pop(st.chat_id, None)
-
-async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user=update.effective_user; here_id=update.effective_chat.id
+async def cmd_stopquiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, here_id, user.id):
-            await update.message.reply_text("Only group admins can stop the quiz here."); return
-    st=GAMES.get(here_id)
-    if not st:
-        await update.message.reply_text("No active quiz to stop."); return
-    st.limit=st.q_index+1; st.locked=True
-    await update.message.reply_text("Stopping quiz…"); cancel_jobs(context, st.chat_id); await finish_quiz(context, st)
+        if not await is_admin(context, update.effective_chat.id, update.effective_user.id):
+            await update.message.reply_text("Only admins may stop quizzes here."); return
+    chat_id = update.effective_chat.id; st = GAMES.get(chat_id)
+    if not st: await update.message.reply_text("No active quiz."); return
+    await finish_quiz(context, st)
 
-async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id=update.effective_chat.id
-    if update.effective_chat.type != "private" and ADMINS_ONLY:
-        if not await is_admin(context, chat_id, update.effective_user.id):
-            await update.message.reply_text("Only group admins can reset this chat."); return
-    GAMES.pop(chat_id, None); LAST.pop(chat_id, None); SETTINGS.pop(chat_id, None); cancel_jobs(context, chat_id)
-    await update.message.reply_text("✅ Reset complete. Use /menu to choose Mode, then Length, then /startquiz.")
+def build_app() -> Application:
+    if not TOKEN: raise RuntimeError("No TELEGRAM TOKEN in env")
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("ping", cmd_ping))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("startquiz", cmd_startquiz))
+    app.add_handler(CommandHandler("stopquiz", cmd_stopquiz))
+    app.add_handler(CallbackQueryHandler(answer_cb, pattern=r"^ans:"))
+    return app
 
-# Unknown commands -> help
-async def on_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message and update.message.text and update.message.text.startswith("/"):
-        await update.message.reply_text("Unknown command. Try /help")
-
-# -------------- KEEP-ALIVE (for Web) --------------
+# Keepalive server (daemon thread)
 def start_keepalive_if_needed():
     port_env = os.getenv("PORT")
     if not port_env:
-        log.info("No $PORT detected — assuming Worker service.")
-        return
-    try: port = int(port_env)
+        log.info("No $PORT detected — assuming worker mode."); return
+    try:
+        port = int(port_env)
     except:
         log.warning("Invalid PORT=%r; skipping keep-alive", port_env); return
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
-            self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8")
-            self.end_headers(); self.wfile.write(b"ok")
-        def log_message(self, *a, **k): return
-    threading.Thread(target=lambda: HTTPServer(("0.0.0.0", port), H).serve_forever(), daemon=True).start()
-    log.info("Keep-alive HTTP listening on 0.0.0.0:%d", port)
+            self.send_response(200); self.send_header("Content-Type","text/plain; charset=utf-8"); self.end_headers()
+            self.wfile.write(b"ok")
+        def log_message(self,*a,**k): return
+    def run():
+        try:
+            log.info("Keep-alive HTTP listening on 0.0.0.0:%d", port)
+            HTTPServer(("0.0.0.0", port), H).serve_forever()
+        except Exception:
+            log.exception("keepalive crashed")
+    t = threading.Thread(target=run, daemon=True, name="keepalive")
+    t.start()
 
-# -------------- BUILD --------------------
-def build_app() -> Application:
-    token = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
-    if not token: raise RuntimeError("Set BOT_TOKEN (or TELEGRAM_BOT_TOKEN / TELEGRAM_TOKEN) env var.")
-    builder = Application.builder().token(token)
-    try:
-        from telegram.ext import AIORateLimiter
-        builder = builder.rate_limiter(AIORateLimiter())
-        log.info("AIORateLimiter enabled.")
-    except Exception as e:
-        log.info("Rate limiter not available; continuing: %s", e)
-    app = builder.build()
-
-    app.add_handler(CommandHandler("start",       cmd_start))
-    app.add_handler(CommandHandler("help",        cmd_help))
-    app.add_handler(CommandHandler("menu",        cmd_menu))
-    app.add_handler(CallbackQueryHandler(cfg_click, pattern=r"^cfg:"))
-    app.add_handler(CallbackQueryHandler(start_click, pattern=r"^start:(beginner|standard|expert):\d+$"))
-    app.add_handler(CommandHandler("startquiz",   cmd_startquiz))
-    app.add_handler(CommandHandler("leaderboard", cmd_leaderboard))
-    app.add_handler(CommandHandler("answer",      cmd_answer))
-    app.add_handler(CommandHandler("stopquiz",    cmd_stop))
-    app.add_handler(CommandHandler("stop",        cmd_stop))
-    app.add_handler(CommandHandler("cancel",      cmd_stop))
-    app.add_handler(CommandHandler("reset",       cmd_reset))
-    app.add_handler(CommandHandler("ping",        cmd_ping))
-    app.add_handler(CallbackQueryHandler(on_answer, pattern=r"^ans:\d+:\d$"))
-    app.add_handler(MessageHandler(filters.COMMAND, on_unknown))
-    return app
-
-# -------------- START --------------------
 if __name__ == "__main__":
-    log.info("Starting quiz bot…")
-    start_keepalive_if_needed()
-    app = build_app()
-    app.run_polling(drop_pending_updates=True)
+    try:
+        log.info("Starting quiz bot…")
+        start_keepalive_if_needed()
+        app = build_app()
+        app.run_polling()
+    except Exception:
+        log.exception("Fatal error in main")
